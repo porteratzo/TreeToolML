@@ -1,14 +1,9 @@
-from posixpath import basename
 import open3d as o3d
-from Libraries.Visualization import open3dpaint
 import numpy as np
-from plyfile import PlyData, PlyElement, PlyProperty
+from plyfile import PlyData
 import glob
 import pandas as pd
 import os
-from collections import defaultdict
-from open3d.ml.contrib import subsample
-from Libraries.time_utils import TicTocClass, default_timer
 from data_gen_utils.dataloaders import data_loader, downsample
 
 
