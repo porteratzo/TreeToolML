@@ -4,7 +4,7 @@ Created on Mon July 11 18:50:39 2020
 @author: Haifeng Luo
 """
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import argparse
 import os
 import sys
