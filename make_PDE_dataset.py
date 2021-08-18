@@ -38,3 +38,4 @@ for i in tqdm(range(400)):
     np.save(os.path.join(savepathtest, str(i)+'.npy'), array)
 
 # %%
+os.getcwd()

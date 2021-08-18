@@ -93,23 +93,27 @@ def downsample(points, features=None, labels=None, grid_size=0.6):
 
         return out_points, out_features, out_labels
     else:
-        pcd = o3d.geometry.PointCloud()
-        if not (labels is None):
-            print('p')
         if (features is None) :
             features = np.zeros(points.shape[0])
         if (labels is None):
             labels = np.zeros(points.shape[0])
 
-        feature_label_zeros = np.vstack([features.flatten(), labels.flatten(), np.zeros_like(labels.flatten())]).T
+        idx = np.arange(points.shape[0])
+        sub_idx = idx[:int(points.shape[0]/10)]
+        out_points = points[:int(points.shape[0]/10)]
+        out_features = features[:int(points.shape[0]/10)]
+        out_labels = labels[:int(points.shape[0]/10)]
+        if False:
+            feature_label_zeros = np.vstack([features.flatten(), labels.flatten(), np.zeros_like(labels.flatten())]).T
+            
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.colors = o3d.utility.Vector3dVector(feature_label_zeros)
+            down = pcd.voxel_down_sample(grid_size)
+            out_points = np.asarray(down.points)
+            out_feature_label_zeros = np.asarray(down.colors)
+            out_features = np.around(out_feature_label_zeros[:,0].reshape(-1,1))
+            out_labels = np.around(out_feature_label_zeros[:,1])
         
-        pcd.points = o3d.utility.Vector3dVector(points)
-        pcd.normals = o3d.utility.Vector3dVector(feature_label_zeros)
-        down = pcd.voxel_down_sample(grid_size)
-        out_points = np.asarray(down.points)
-        out_feature_label_zeros = np.asarray(down.points)
-        out_features = out_feature_label_zeros[:,0].reshape(-1,1)
-        out_labels = out_feature_label_zeros[:,1]
         return out_points, out_features, out_labels
 
     
@@ -132,6 +136,7 @@ class data_loader:
 
     def load_data(self, dir):
         point_cloud, labels, instances = load_cloud(dir)
+        assert((len(point_cloud)>0) &(len(labels)>0) & (len(instances)>0))
         self.point_cloud = point_cloud
         self.labels = labels
         self.instances = instances
