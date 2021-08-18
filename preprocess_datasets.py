@@ -8,6 +8,7 @@ import os
 loader = all_data_loader(onlyTrees=False, preprocess=True, default=True)
 #%%
 for keys, i in tqdm(loader.loader_list.items()):
+    print(keys)
     i.load_data()
     buffer_label = copy.copy(i.labels)
     i.labels[buffer_label==i.tree_label] = 1

@@ -1,27 +1,10 @@
 #%%
-from collections import defaultdict
-import open3d as o3d
-from Libraries.Visualization import open3dpaint, open3dpaint_non_block
 from data_gen_utils.all_dataloader import all_data_loader
-from data_gen_utils.dataloaders import save_cloud, load_cloud
 import numpy as np
-from plyfile import PlyData, PlyElement, PlyProperty
-import glob
-import zmq
-from Libraries.time_utils import TicTocClass
 from tqdm import tqdm
-import time
-from pygifsicle import optimize
-import imageio
 import os
-from shutil import rmtree
-import cv2
 
-##################IQMULUS
-timer = TicTocClass()
-timer.tic()
 loader = all_data_loader(onlyTrees=False, preprocess=True, default=False, train_split=True)
-timer.pttoc('data_loader')
 
 # %%
 loader.load_all('datasets/custom_data/preprocessed')
