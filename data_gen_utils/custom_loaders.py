@@ -173,14 +173,15 @@ class paris_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/Paris_Lille3D/training_10_classes/*.ply"):
+    def load_data(self, dir="datasets/Paris_Lille3D/training_50_classes/*.ply"):
         if not self.data_loaded:
             point_clouds = []
             labels = []
             instances = []
             for i in glob.glob(dir):
-                if os.path.basename(i) == 'Paris.ply':
-                    continue
+                print(os.path.basename(i))
+                #if os.path.basename(i) == 'Paris.ply':
+                #    continue
                 with open(i, "rb") as f:
                     plydata = PlyData.read(f)
 
