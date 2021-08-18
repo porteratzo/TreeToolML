@@ -1,4 +1,3 @@
-from numpy.random import choice
 from data_gen_utils.custom_loaders import (
     tropical_loader,
     open_loader,

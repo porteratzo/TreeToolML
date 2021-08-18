@@ -2,7 +2,11 @@ import open3d as o3d
 import numpy as np
 from plyfile import PlyData, PlyElement
 from collections import defaultdict
-from open3d.ml.contrib import subsample
+try:
+    from open3d.ml.contrib import subsample
+    use_ml = True
+except ImportError:
+    use_ml = False
 from sklearn.model_selection import train_test_split
 
 
@@ -72,21 +76,43 @@ def downsample(points, features=None, labels=None, grid_size=0.6):
     out_labels = []
     if points.dtype != np.float32:
         points = points.astype(np.float32)
+    use_ml = False
+    if use_ml:
+        if (features is None) and (labels is None):
+            out_points = subsample(points, sampleDl=grid_size)
+        elif labels is None:
+            out_points, out_features = subsample(
+                points, features=features, sampleDl=grid_size
+            )
+        elif features is None:
+            out_points, out_labels = subsample(points, classes=labels, sampleDl=grid_size)
+        else:
+            out_points, out_features, out_labels = subsample(
+                points, features=features, classes=labels, sampleDl=grid_size
+            )
 
-    if (features is None) and (labels is None):
-        out_points = subsample(points, sampleDl=grid_size)
-    elif labels is None:
-        out_points, out_features = subsample(
-            points, features=features, sampleDl=grid_size
-        )
-    elif features is None:
-        out_points, out_labels = subsample(points, classes=labels, sampleDl=grid_size)
+        return out_points, out_features, out_labels
     else:
-        out_points, out_features, out_labels = subsample(
-            points, features=features, classes=labels, sampleDl=grid_size
-        )
+        pcd = o3d.geometry.PointCloud()
+        if not (labels is None):
+            print('p')
+        if (features is None) :
+            features = np.zeros(points.shape[0])
+        if (labels is None):
+            labels = np.zeros(points.shape[0])
 
-    return out_points, out_features, out_labels
+        feature_label_zeros = np.vstack([features.flatten(), labels.flatten(), np.zeros_like(labels.flatten())]).T
+        
+        pcd.points = o3d.utility.Vector3dVector(points)
+        pcd.normals = o3d.utility.Vector3dVector(feature_label_zeros)
+        down = pcd.voxel_down_sample(grid_size)
+        out_points = np.asarray(down.points)
+        out_feature_label_zeros = np.asarray(down.points)
+        out_features = out_feature_label_zeros[:,0].reshape(-1,1)
+        out_labels = out_feature_label_zeros[:,1]
+        return out_points, out_features, out_labels
+
+    
 
 
 class data_loader:
