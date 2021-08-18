@@ -82,7 +82,6 @@ class all_data_loader:
 
     def get_random_forground(self, train=False):
         choice = np.random.choice(len(self.tree_list))
-        print(choice)
         if choice == 2:
             return self.tree_list[choice].get_random_forground(train) * 0.5
         else:
