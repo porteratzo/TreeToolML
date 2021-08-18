@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--log_dir', default='IndividualTreeExtraction/pre_trained_PDE_net', help='Log dir [default: log]')
 parser.add_argument('--num_point', type=int, default=4096, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 100]')
-parser.add_argument('--batch_size', type=int, default=12, help='Batch Size during training for each GPU [default: 12]')
+parser.add_argument('--batch_size', type=int, default=20, help='Batch Size during training for each GPU [default: 12]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--decay_step', type=int, default=50000, help='Decay step for lr decay [default: 50000]')
 parser.add_argument('--decay_rate', type=float, default=0.95, help='Decay rate for lr decay [default: 0.95]')
@@ -101,7 +101,7 @@ def train():
         temp_loss = train_one_epoch(DeepPointwiseDirections, epoch, train_set, generator_training, optomizer, scaler, scheduler)
         torch.cuda.empty_cache()
         #####validating steps
-        validation(DeepPointwiseDirections, val_set, generator_val)
+        val_loss = validation(DeepPointwiseDirections, val_set, generator_val)
 
         if (temp_loss < init_loss) or (epoch%5==0):
             torch.save({
@@ -109,6 +109,7 @@ def train():
             'model_state_dict': DeepPointwiseDirections.state_dict(),
             'optimizer_state_dict': optomizer.state_dict(),
             'loss': temp_loss,
+            'val_loss': val_loss,
             }, os.path.join(LOG_DIR, 'epoch_' + str(epoch) + '.pt'))
             init_loss = temp_loss
 
@@ -173,6 +174,7 @@ def validation(model, test_set, generator):
     log_string('val loss: %f, loss_esd: %f, loss_pd: %f'%(total_loss_esd/num_batches_testing,
                                                           loss_esd_/num_batches_testing,
                                                           loss_pd_/num_batches_testing))
+    return total_loss_esd
 
 if __name__ == "__main__":
     train()
