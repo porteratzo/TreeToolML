@@ -5,8 +5,9 @@ Created on Mon July 11 18:50:39 2020
 """
 import os
 import socket
+
 print(socket.gethostname())
-if socket.gethostname() == 'omar-G5-KC':
+if socket.gethostname() == "omar-G5-KC":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -40,12 +41,12 @@ parser.add_argument(
 parser.add_argument(
     "--max_epoch", type=int, default=100, help="Epoch to run [default: 100]"
 )
-#parser.add_argument(
+# parser.add_argument(
 #    "--batch_size",
 #    type=int,
 #    default=20,
 #    help="Batch Size during training for each GPU [default: 12]",
-#)
+# )
 parser.add_argument(
     "--learning_rate",
     type=float,
@@ -81,7 +82,7 @@ FLAGS = parser.parse_args()
 TRAIN_DATA_PATH = FLAGS.training_data_path
 VALIDATION_PATH = FLAGS.validating_data_path
 
-if socket.gethostname() == 'omar-G5-KC':
+if socket.gethostname() == "omar-G5-KC":
     BATCH_SIZE = 4
 else:
     BATCH_SIZE = 16
@@ -103,7 +104,6 @@ if not os.path.exists(LOG_DIR):
 LOG_FOUT = open(os.path.join(LOG_DIR, "log_train.txt"), "w")
 LOG_FOUT.write(str(FLAGS) + "\n")
 device = "cuda" if torch.cuda.is_available() else "cpu"
-tensor_data_type = torch.float16 if device == "cuda" else torch.float32
 
 
 def log_string(out_str):
@@ -116,7 +116,7 @@ def train():
     writer = SummaryWriter("runs/batchnorm_afineFalse_1")
     pointclouds = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
     #####DirectionEmbedding
-    #with torch.cuda.amp.autocast():
+    # with torch.cuda.amp.autocast():
     DeepPointwiseDirections = PDE_net_torch.get_model_RRFSegNet()
     DeepPointwiseDirections.cuda()
     writer.add_graph(DeepPointwiseDirections, pointclouds)
@@ -205,7 +205,7 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
                 y, batch_direction_label_data
             )
             loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
-            total_loss = 1 * loss_esd_ + 0 * loss_pd_
+            total_loss = loss_esd_
 
         scaler.scale(total_loss).backward()
         scaler.step(opt)
@@ -223,8 +223,8 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
         % (
             epoch,
             total_loss / (num_batches_training),
-            total_loss_esd / (num_batches_training),
-            total_loss_pd / (num_batches_training),
+            loss_esd_ / (num_batches_training),
+            loss_pd_ / (num_batches_training),
         )
     )
     return total_loss.cpu() / (num_batches_training)
@@ -243,10 +243,10 @@ def validation(model, test_set, generator):
         model.eval()
         with torch.no_grad():
             with torch.cuda.amp.autocast():
-                y = model(torch.as_tensor(batch_test_data).cuda())
+                y = model(torch.as_tensor(batch_test_data, device=device))
                 batch_direction_label_data = torch.as_tensor(
-                    batch_direction_label_data
-                ).cuda()
+                    batch_direction_label_data, device=device
+                )
                 loss_esd_ = Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data
                 )
