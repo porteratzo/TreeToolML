@@ -167,7 +167,7 @@ class data_loader:
                 self.trees = tree_points
             if self.train_split:
                 indexes = np.arange(len(self.trees))
-                self.train_trees, self.test_trees, _, _ = train_test_split(indexes,indexes, test_size=0.2)
+                self.train_trees, self.test_trees = train_test_split(indexes, test_size=0.2)
         return self.trees
 
     def get_non_trees(self, unique=True):

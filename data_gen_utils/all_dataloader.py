@@ -76,6 +76,10 @@ class all_data_loader:
             for key, value in tqdm(self.loader_list.items()):
                 value.load_data(os.path.join(dir, key + ".ply"))
 
+        print('opentree trees:', len(self.open.get_trees()))
+        print('paris trees:', len(self.paris.get_trees()))
+        print('tropical trees:', len(self.tropical.get_trees()))
+
     def get_random_background(self, radius=10):
         choice = np.random.choice(len(self.non_tree_list))
         return self.non_tree_list[choice].get_random_background(radius)
