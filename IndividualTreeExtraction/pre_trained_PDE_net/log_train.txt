@@ -1,2 +1,2 @@
-Namespace(batch_size=4, decay_rate=0.95, decay_step=50000, learning_rate=0.001, log_dir='IndividualTreeExtraction/pre_trained_PDE_net', max_epoch=100, num_point=4096, training_data_path='datasets/custom_data/PDE/training_data/', validating_data_path='datasets/custom_data/PDE/validating_data/')
+Namespace(decay_rate=0.95, decay_step=50000, learning_rate=0.001, log_dir='IndividualTreeExtraction/pre_trained_PDE_net', max_epoch=100, num_point=4096, training_data_path='datasets/custom_data/PDE/training_data/', validating_data_path='datasets/custom_data/PDE/validating_data/')
 **** EPOCH 000 ****

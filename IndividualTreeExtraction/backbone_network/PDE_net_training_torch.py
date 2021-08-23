@@ -4,8 +4,13 @@ Created on Mon July 11 18:50:39 2020
 @author: Haifeng Luo
 """
 import os
+import socket
+print(socket.gethostname())
+if socket.gethostname() == 'omar-G5-KC':
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+else:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import argparse
 import os
 import sys
@@ -35,12 +40,12 @@ parser.add_argument(
 parser.add_argument(
     "--max_epoch", type=int, default=100, help="Epoch to run [default: 100]"
 )
-parser.add_argument(
-    "--batch_size",
-    type=int,
-    default=20,
-    help="Batch Size during training for each GPU [default: 12]",
-)
+#parser.add_argument(
+#    "--batch_size",
+#    type=int,
+#    default=20,
+#    help="Batch Size during training for each GPU [default: 12]",
+#)
 parser.add_argument(
     "--learning_rate",
     type=float,
@@ -76,8 +81,11 @@ FLAGS = parser.parse_args()
 TRAIN_DATA_PATH = FLAGS.training_data_path
 VALIDATION_PATH = FLAGS.validating_data_path
 
+if socket.gethostname() == 'omar-G5-KC':
+    BATCH_SIZE = 4
+else:
+    BATCH_SIZE = 24
 
-BATCH_SIZE = FLAGS.batch_size
 NUM_POINT = FLAGS.num_point
 MAX_EPOCH = FLAGS.max_epoch
 BASE_LEARNING_RATE = FLAGS.learning_rate
@@ -106,19 +114,10 @@ def log_string(out_str):
 
 def train():
     writer = SummaryWriter("runs/batchnorm_afineFalse_1")
-
+    pointclouds = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
     #####DirectionEmbedding
-    with torch.cuda.amp.autocast():
-        pointclouds = torch.rand(dtype=tensor_data_type, size=(BATCH_SIZE, NUM_POINT, 3), device=device)
-        direction_labels = torch.rand(dtype=tensor_data_type, size=(BATCH_SIZE, NUM_POINT, 3), device=device)
-        DeepPointwiseDirections = PDE_net_torch.get_model_RRFSegNet(
-            "PDE_net",
-            pointclouds,
-            is_training=True,
-            weight_decay=0.0001,
-            bn_decay=0.0001,
-            k=20,
-        )
+    #with torch.cuda.amp.autocast():
+    DeepPointwiseDirections = PDE_net_torch.get_model_RRFSegNet()
     DeepPointwiseDirections.cuda()
     writer.add_graph(DeepPointwiseDirections, pointclouds)
     optomizer = Adam(
