@@ -203,11 +203,11 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
             y = model(batch_train_data)
             loss_esd_ = Loss_torch.slack_based_direction_loss(
                 y, batch_direction_label_data
-            ).half()
+            )
             loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
             total_loss = loss_esd_
 
-        scaler.scale(total_loss).backward()
+        scaler.scale(total_loss.half()).backward()
         scaler.step(opt)
         scaler.update()
         scheduler.step()
@@ -249,7 +249,7 @@ def validation(model, test_set, generator):
                 )
                 loss_esd_ = Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data
-                ).half()
+                )
                 loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
         total_loss_esd = loss_esd_
 
