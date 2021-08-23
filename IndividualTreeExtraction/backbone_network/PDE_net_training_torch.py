@@ -38,7 +38,7 @@ parser.add_argument(
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=24,
+    default=20,
     help="Batch Size during training for each GPU [default: 12]",
 )
 parser.add_argument(
