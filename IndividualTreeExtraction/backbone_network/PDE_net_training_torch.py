@@ -161,7 +161,7 @@ def train():
         torch.cuda.empty_cache()
         #####validating steps
         val_loss = validation(DeepPointwiseDirections, val_set, generator_val)
-        writer.add_scalar("LR/lr", scheduler.get_lr(), epoch)
+        writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], epoch)
         writer.add_scalar("Loss/validation", val_loss, epoch)
 
         if (temp_loss < init_loss) or (epoch % 5 == 0):
@@ -190,7 +190,7 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
     total_loss = 0
     total_loss_esd = 0
     total_loss_pd = 0
-    for i in tqdm(range(num_batches_training)):
+    for i in tqdm(range(num_batches_training-980)):
         ###
         opt.zero_grad()
         batch_train_data, batch_direction_label_data, _ = next(generator)
@@ -209,12 +209,13 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
         scaler.scale(total_loss).backward()
         scaler.step(opt)
         scaler.update()
-        scheduler.step()
+    
 
         if i % 20 == 0:
             print(
                 "loss: %f, loss_esd: %f,loss_pd: %f" % (total_loss, loss_esd_, loss_pd_)
             )
+    scheduler.step()
 
     print("trianing_log_epoch_%d" % epoch)
     log_string(
