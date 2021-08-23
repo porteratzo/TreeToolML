@@ -204,7 +204,7 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
             loss_esd_ = Loss_torch.slack_based_direction_loss(
                 y, batch_direction_label_data
             )
-            loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
+            loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data).half()
             total_loss = loss_esd_
 
         scaler.scale(total_loss).backward()
