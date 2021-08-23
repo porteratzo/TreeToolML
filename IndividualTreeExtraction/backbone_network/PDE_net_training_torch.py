@@ -85,7 +85,7 @@ VALIDATION_PATH = FLAGS.validating_data_path
 if socket.gethostname() == "omar-G5-KC":
     BATCH_SIZE = 4
 else:
-    BATCH_SIZE = 24
+    BATCH_SIZE = 32
 
 NUM_POINT = FLAGS.num_point
 MAX_EPOCH = FLAGS.max_epoch
@@ -196,9 +196,9 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
         batch_train_data, batch_direction_label_data, _ = next(generator)
         model.train()
         with torch.cuda.amp.autocast():
-            batch_train_data = torch.tensor(batch_train_data, device=device, dtype=torch.float16)
+            batch_train_data = torch.tensor(batch_train_data, device=device)
             batch_direction_label_data = torch.tensor(
-                batch_direction_label_data, device=device, dtype=torch.float16
+                batch_direction_label_data, device=device
             )
             y = model(batch_train_data)
             loss_esd_ = Loss_torch.slack_based_direction_loss(
