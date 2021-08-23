@@ -206,8 +206,8 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
             )
             loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
             total_loss = loss_esd_
-
-        scaler.scale(total_loss.half()).backward()
+        total_loss = total_loss.to(torch.float16)
+        scaler.scale(total_loss).backward()
         scaler.step(opt)
         scaler.update()
         scheduler.step()
