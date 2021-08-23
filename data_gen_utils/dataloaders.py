@@ -97,6 +97,9 @@ def downsample(points, features=None, labels=None, grid_size=0.6):
             features = np.zeros(points.shape[0])
         if (labels is None):
             labels = np.zeros(points.shape[0])
+        points = np.random.shuffle(points)
+        features = np.random.shuffle(features)
+        labels = np.random.shuffle(labels)
 
         idx = np.arange(points.shape[0])
         sub_idx = idx[:int(points.shape[0]/10)]

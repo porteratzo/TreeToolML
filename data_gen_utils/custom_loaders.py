@@ -181,8 +181,6 @@ class paris_loader(data_loader):
             smallest_instance = 0
             for i in glob.glob(dir):
                 print(os.path.basename(i))
-                #if os.path.basename(i) == 'Paris.ply':
-                #    continue
                 with open(i, "rb") as f:
                     plydata = PlyData.read(f)
 
@@ -202,8 +200,7 @@ class paris_loader(data_loader):
                     point_cloud, features=instance, labels=label, grid_size=grid_size
                 )
                 
-                instances.append(sub_feat + smallest_instance)
-                smallest_instance += np.max(sub_feat)
+                instances.append(sub_feat)
                 labels.append(sub_labels)
                 point_clouds.append(sub_points)
 
