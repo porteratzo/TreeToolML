@@ -109,8 +109,8 @@ def train():
 
     #####DirectionEmbedding
     with torch.cuda.amp.autocast():
-        pointclouds = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
-        direction_labels = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
+        pointclouds = torch.rand(dtype=tensor_data_type, size=(BATCH_SIZE, NUM_POINT, 3), device=device)
+        direction_labels = torch.rand(dtype=tensor_data_type, size=(BATCH_SIZE, NUM_POINT, 3), device=device)
         DeepPointwiseDirections = PDE_net_torch.get_model_RRFSegNet(
             "PDE_net",
             pointclouds,
