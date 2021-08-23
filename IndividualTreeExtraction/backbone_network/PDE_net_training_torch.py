@@ -196,9 +196,9 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
         batch_train_data, batch_direction_label_data, _ = next(generator)
         model.train()
         with torch.cuda.amp.autocast():
-            batch_train_data = torch.tensor(batch_train_data, device=device)
+            batch_train_data = torch.tensor(batch_train_data, device=device, dtype=torch.float16)
             batch_direction_label_data = torch.tensor(
-                batch_direction_label_data, device=device
+                batch_direction_label_data, device=device, dtype=torch.float16
             )
             y = model(batch_train_data)
             loss_esd_ = Loss_torch.slack_based_direction_loss(
@@ -207,8 +207,7 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
             loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
             total_loss = loss_esd_
         total_loss = total_loss.to(torch.float16)
-
-        scaler.scale(total_loss.float()).backward()
+        scaler.scale(total_loss.half()).backward()
         scaler.step(opt)
         scaler.update()
         scheduler.step()
