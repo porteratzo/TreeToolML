@@ -85,7 +85,7 @@ VALIDATION_PATH = FLAGS.validating_data_path
 if socket.gethostname() == "omar-G5-KC":
     BATCH_SIZE = 4
 else:
-    BATCH_SIZE = 16
+    BATCH_SIZE = 24
 
 NUM_POINT = FLAGS.num_point
 MAX_EPOCH = FLAGS.max_epoch
