@@ -18,6 +18,8 @@ sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 import py_util
 import PDE_net_torch
 import Loss_torch
+from torch.utils.tensorboard import SummaryWriter
+
 
 
 parser = argparse.ArgumentParser()
@@ -67,10 +69,12 @@ def log_string(out_str):
     print(out_str)
 
 def train():
-    pointclouds = torch.rand( dtype=tensor_data_type, size=(BATCH_SIZE, NUM_POINT, 3), device=device)
-    direction_labels = torch.rand( dtype=tensor_data_type, size=(BATCH_SIZE, NUM_POINT, 3), device=device)
+    writer = SummaryWriter('runs/batchnorm_afineFalse_1')
+    
     #####DirectionEmbedding
     with torch.cuda.amp.autocast():
+        pointclouds = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
+        direction_labels = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
         DeepPointwiseDirections = PDE_net_torch.get_model_RRFSegNet('PDE_net',
                                                 pointclouds,
                                                 is_training=True,
@@ -78,7 +82,9 @@ def train():
                                                 bn_decay=0.0001,
                                                 k=20)
     DeepPointwiseDirections.cuda()
+    writer.add_graph(DeepPointwiseDirections, pointclouds)
     #loss = 1 * loss_esd + 0 * loss_pd
+    DeepPointwiseDirections.parameters()
     optomizer = Adam(DeepPointwiseDirections.parameters(), weight_decay=0.0001, lr=0.001)
     scaler = torch.cuda.amp.GradScaler()
     scheduler = lr_scheduler.ExponentialLR(optomizer, 0.95)
@@ -99,9 +105,14 @@ def train():
 
         #####trainging steps
         temp_loss = train_one_epoch(DeepPointwiseDirections, epoch, train_set, generator_training, optomizer, scaler, scheduler)
+        for name, weight in DeepPointwiseDirections.named_parameters():
+            writer.add_histogram(name,weight, epoch)
+            writer.add_histogram(f'{name}.grad',weight.grad, epoch)
+        writer.add_scalar("Loss/traning", temp_loss, epoch)
         torch.cuda.empty_cache()
         #####validating steps
         val_loss = validation(DeepPointwiseDirections, val_set, generator_val)
+        writer.add_scalar("Loss/validation", val_loss, epoch)
 
         if (temp_loss < init_loss) or (epoch%5==0):
             torch.save({
@@ -112,6 +123,8 @@ def train():
             'val_loss': val_loss,
             }, os.path.join(LOG_DIR, 'epoch_' + str(epoch) + '.pt'))
             init_loss = temp_loss
+        writer.flush()
+    writer.close()
 
 
 def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):

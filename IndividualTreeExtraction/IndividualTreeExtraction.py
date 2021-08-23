@@ -15,14 +15,31 @@ sys.path.append(os.path.join(BASE_DIR, 'accessible_region'))
 sys.path.append(os.path.join(BASE_DIR, 'utils'))
 sys.path.append('Libraries')
 sys.path.append('utils')
+sys.path.append('..')
 import py_util
 import VoxelTraversalAlgorithm as VTA
 #import AccessibleRegionGrowing as ARG
 import PointwiseDirectionPrediction_torch as PDE_net
-from Libraries.Visualization import open3dpaint
-from Libraries.Plane import makesphere
+from open3dvis import open3dpaint
+import BatchSampleGenerator as BSG
+import Loss_torch
+import torch
 
 
+def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
+    n = np.arange(0, 360, int(360 / dense))
+    n = np.deg2rad(n)
+    x, y = np.meshgrid(n, n)
+    x = x.flatten()
+    y = y.flatten()
+    sphere = np.vstack(
+        [
+            centroid[0] + np.sin(x) * np.cos(y) * radius,
+            centroid[1] + np.sin(x) * np.sin(y) * radius,
+            centroid[2] + np.cos(x) * radius,
+        ]
+    ).T
+    return sphere
 
 def show_AR_RG(voxels1, voxels2):
     fig = plt.figure()
@@ -243,6 +260,8 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
     ####restore trained PDE-net
     PDE_net_model_path
     model = PDE_net.restore_trained_model(NUM_POINT, PDE_net_model_path).cuda()
+    val_set = py_util.get_data_set(test_data_path)
+    generator_val = BSG.minibatch_generator(test_data_path, 1, val_set, NUM_POINT)
     ####
     file_list = os.listdir(test_data_path)
     for i in range(len(file_list[:10])):
@@ -251,18 +270,23 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
         print('Separating ' + filename + '...')
         #### data[x, y, z] original coordinates
         gt_data = py_util.shuffle_data(py_util.load_data(test_data_path + file_list[i]))[:4096]
-        testdata = gt_data[:, :3]
+        gt_data = next(generator_val)
+        testdata = gt_data[0][0]
+        directions = gt_data[1][0]
+        labels = gt_data[2][0]
         
-        ind_trees = [gt_data[gt_data[:,3]==i][:,:3] for i in np.unique(gt_data[:,3])]
+        ind_trees = [testdata[labels==i] for i in np.unique(gt_data[2])]
         object_centers = [py_util.compute_object_center(i) for i in ind_trees]
         ####normalized coordinates
-        nor_testdata = py_util.normalize(testdata)
+        nor_testdata = testdata
         ####Pointwise direction prediction
         xyz_direction = PDE_net.prediction(model, nor_testdata)
         ####tree center detection
         object_center_list = center_detection(xyz_direction, voxel_size, ARe, Nd)
-        open3dpaint(ind_trees+[makesphere(i) for i in object_centers])
-        open3dpaint(ind_trees+[makesphere(object_center_list[0])])
+        loss_esd_ = Loss_torch.slack_based_direction_loss(torch.tensor(xyz_direction.T[np.newaxis,3:6,:].astype(np.float32)) ,torch.tensor(directions[np.newaxis,:].astype(np.float32)))
+        print(loss_esd_)
+        open3dpaint(ind_trees+[makesphere(i, 0.1) for i in object_centers], pointsize=5)
+        open3dpaint(ind_trees+[makesphere(object_center_list[0], 0.1)], pointsize=5)
 
         ####for single tree clusters
         if np.size(object_center_list, axis=0) <= 1:
@@ -361,8 +385,8 @@ if __name__ == '__main__':
     ARe = np.pi / 9.0
     voxel_size = 0.08
     #######
-    PDE_net_model_path ='./backbone_network/pre_trained_PDE_net/'
-    test_data_path = './data/test/'
+    PDE_net_model_path ='IndividualTreeExtraction/backbone_network/pre_trained_PDE_net/'
+    test_data_path = 'datasets/custom_data/PDE/validating_data/'
     result_path = './result/'
     if not os.path.exists(result_path): os.mkdir(result_path)
 
