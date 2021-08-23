@@ -1,17 +1,6 @@
 #!/bin/bash
 
-if [ "$#" -ne 1 ]; then
-    echo "Please, provide the base directory to store the dataset."
-    exit 1
-fi
-
-if ! command -v 7z &> /dev/null
-then
-    echo "Error: 7z could not be found. Please, install it to continue."
-    exit
-fi
-
-BASE_DIR="$1"/Semantic3D
+BASE_DIR=datasets/Semantic3D
 
 # Training data
 wget -c -N http://semantic3d.net/data/point-clouds/training1/bildstein_station1_xyz_intensity_rgb.7z -P $BASE_DIR
