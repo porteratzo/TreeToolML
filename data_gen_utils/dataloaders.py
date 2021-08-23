@@ -97,15 +97,13 @@ def downsample(points, features=None, labels=None, grid_size=0.6):
             features = np.zeros(points.shape[0])
         if (labels is None):
             labels = np.zeros(points.shape[0])
-        np.random.shuffle(points)
-        np.random.shuffle(features)
-        np.random.shuffle(labels)
 
         idx = np.arange(points.shape[0])
+        np.random.shuffle(idx)
         sub_idx = idx[:int(points.shape[0]/10)]
-        out_points = points[:int(points.shape[0]/10)]
-        out_features = features[:int(points.shape[0]/10)]
-        out_labels = labels[:int(points.shape[0]/10)]
+        out_points = points[sub_idx]
+        out_features = features[sub_idx]
+        out_labels = labels[sub_idx]
         if False:
             feature_label_zeros = np.vstack([features.flatten(), labels.flatten(), np.zeros_like(labels.flatten())]).T
             
@@ -250,7 +248,5 @@ class data_loader:
 
         dists = np.linalg.norm(smaller_forground[:, :2], axis=1)
         smaller_forground = smaller_forground[dists < 20]
-        if len(smaller_forground) < 60:
-            print('simthing')
 
         return smaller_forground
