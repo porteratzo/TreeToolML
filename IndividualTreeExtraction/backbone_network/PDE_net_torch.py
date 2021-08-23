@@ -91,7 +91,6 @@ def get_relation_features(point_features, nn_idx, k):
     idx_ = torch.reshape(idx_, [batch_size, 1, 1])
 
     point_cloud_flat = torch.reshape(point_features, [-1, num_dims])
-    #point_cloud_neighbors = torch.gather(point_cloud_flat, nn_idx+idx_)
     point_cloud_neighbors = point_cloud_flat[(nn_idx+idx_).long()]
     point_cloud_central = torch.unsqueeze(point_cloud_central, dim=-2)
 

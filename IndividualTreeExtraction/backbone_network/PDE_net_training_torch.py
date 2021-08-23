@@ -83,8 +83,6 @@ def train():
                                                 k=20)
     DeepPointwiseDirections.cuda()
     writer.add_graph(DeepPointwiseDirections, pointclouds)
-    #loss = 1 * loss_esd + 0 * loss_pd
-    DeepPointwiseDirections.parameters()
     optomizer = Adam(DeepPointwiseDirections.parameters(), weight_decay=0.0001, lr=0.001)
     scaler = torch.cuda.amp.GradScaler()
     scheduler = lr_scheduler.ExponentialLR(optomizer, 0.95)
@@ -112,6 +110,7 @@ def train():
         torch.cuda.empty_cache()
         #####validating steps
         val_loss = validation(DeepPointwiseDirections, val_set, generator_val)
+        writer.add_scalar("LR/lr", scheduler.get_lr(), epoch)
         writer.add_scalar("Loss/validation", val_loss, epoch)
 
         if (temp_loss < init_loss) or (epoch%5==0):
