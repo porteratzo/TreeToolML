@@ -190,7 +190,7 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
     total_loss = 0
     total_loss_esd = 0
     total_loss_pd = 0
-    for i in tqdm(range(num_batches_training-980)):
+    for i in tqdm(range(num_batches_training)):
         ###
         opt.zero_grad()
         batch_train_data, batch_direction_label_data, _ = next(generator)
