@@ -216,3 +216,54 @@ class paris_loader(data_loader):
             if self.trees is None:
                 self.get_trees()
             self.point_cloud = None
+
+
+class semantic3D(data_loader):
+    def __init__(self, onlyTrees=False, preprocess=False) -> None:
+        super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
+
+    def load_data(self, dir="datasets/Semantic3D/*.ply"):
+        if not self.data_loaded:
+            point_clouds = []
+            labels = []
+            instances = []
+            smallest_instance = 0
+            for i in glob.glob(dir):
+                print(os.path.basename(i))
+                pc = pd.read_csv(i,
+                         header=None,
+                         delim_whitespace=True,
+                         dtype=np.float32).values
+
+                points = pc[:, 0:3]
+                feat = pc[:, [4, 5, 6]]
+
+                points = np.array(points, dtype=np.float32)
+                feat = np.array(feat, dtype=np.float32)
+
+                labels = pd.read_csv(i.replace(".txt", ".labels"),
+                                    header=None,
+                                    delim_whitespace=True,
+                                    dtype=np.int32).values
+                labels = np.array(labels, dtype=np.int32).reshape((-1,))
+
+                sub_points, sub_feat, sub_labels = downsample(
+                    points, features=feat, labels=labels, grid_size=grid_size
+                )
+                
+                instances.append(sub_feat)
+                labels.append(sub_labels)
+                point_clouds.append(sub_points)
+
+            self.labels = np.concatenate(labels)
+            self.instances = np.concatenate(instances).reshape(
+                -1,
+            )
+            self.point_cloud = np.vstack(point_clouds)
+            self.data_loaded = True
+            self.tree_label = 304020000.0
+
+        if self.onlyTrees:
+            if self.trees is None:
+                self.get_trees()
+            self.point_cloud = None
