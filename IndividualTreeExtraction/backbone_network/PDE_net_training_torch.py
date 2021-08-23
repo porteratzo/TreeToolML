@@ -18,8 +18,8 @@ import sys
 import torch
 from torch.optim import Adam, optimizer, lr_scheduler
 from tqdm import tqdm
-import BatchSampleGenerator as BSG
-
+from BatchSampleGenerator_torch import tree_dataset
+from torch.utils.data import DataLoader
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, "utils"))
@@ -133,23 +133,22 @@ def train():
         sys.stdout.flush()
 
         ####training data generator
-        train_set = py_util.get_data_set(TRAIN_DATA_PATH)
-        generator_training = BSG.minibatch_generator(
-            TRAIN_DATA_PATH, BATCH_SIZE, train_set, NUM_POINT
+        generator_training = tree_dataset(
+            TRAIN_DATA_PATH, NUM_POINT
         )
+        train_loader = DataLoader(generator_training, BATCH_SIZE, shuffle=True, num_workers=0)
 
         ####validating data generator
-        val_set = py_util.get_data_set(VALIDATION_PATH)
-        generator_val = BSG.minibatch_generator(
-            VALIDATION_PATH, BATCH_SIZE, val_set, NUM_POINT
+        generator_val = tree_dataset(
+            VALIDATION_PATH, NUM_POINT
         )
+        test_loader = DataLoader(generator_val, BATCH_SIZE, shuffle=True, num_workers=0)
 
         #####trainging steps
         temp_loss = train_one_epoch(
             DeepPointwiseDirections,
             epoch,
-            train_set,
-            generator_training,
+            train_loader,
             optomizer,
             scaler,
             scheduler,
@@ -160,7 +159,7 @@ def train():
         writer.add_scalar("Loss/traning", temp_loss, epoch)
         torch.cuda.empty_cache()
         #####validating steps
-        val_loss = validation(DeepPointwiseDirections, val_set, generator_val)
+        val_loss = validation(DeepPointwiseDirections, test_loader)
         writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], epoch)
         writer.add_scalar("Loss/validation", val_loss, epoch)
 
@@ -180,10 +179,10 @@ def train():
     writer.close()
 
 
-def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
+def train_one_epoch(model, epoch, generator, opt, scaler, scheduler):
     """ops: dict mapping from string to tf ops"""
 
-    num_batches_training = len(train_set) // (BATCH_SIZE)
+    num_batches_training = len(generator) // (BATCH_SIZE)
     print("-----------------training--------------------")
     print("training steps: %d" % num_batches_training)
 
@@ -193,7 +192,7 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
     for i in tqdm(range(num_batches_training)):
         ###
         opt.zero_grad()
-        batch_train_data, batch_direction_label_data, _ = next(generator)
+        batch_train_data, batch_direction_label_data, _ = next(iter(generator))
         model.train()
         with torch.cuda.amp.autocast():
             batch_train_data = torch.tensor(batch_train_data, device=device)
@@ -230,15 +229,15 @@ def train_one_epoch(model, epoch, train_set, generator, opt, scaler, scheduler):
     return total_loss.cpu() / (num_batches_training)
 
 
-def validation(model, test_set, generator):
+def validation(model, generator):
 
-    num_batches_testing = len(test_set) // (BATCH_SIZE)
+    num_batches_testing = len(generator) // (BATCH_SIZE)
     total_loss = 0
     total_loss_esd = 0
     total_loss_pd = 0
     for _ in tqdm(range(num_batches_testing)):
         ###
-        batch_test_data, batch_direction_label_data, _ = next(generator)
+        batch_test_data, batch_direction_label_data, _ = next(iter(generator))
         ###
         model.eval()
         with torch.no_grad():

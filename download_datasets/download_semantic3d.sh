@@ -25,3 +25,5 @@ do
   7z x "$entry" -o$(dirname "$entry") -y
 done
 
+cd $BASE_DIR
+mv sem8_labels_training/* ./

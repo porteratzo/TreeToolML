@@ -6,6 +6,7 @@ import copy
 import os
 
 loader = all_data_loader(onlyTrees=False, preprocess=True, default=True)
+loader.semantic3D.load_data()
 #%%
 for keys, i in tqdm(loader.loader_list.items()):
     print(keys)

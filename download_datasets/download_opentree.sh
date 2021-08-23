@@ -11,3 +11,5 @@ wget -c -N -O $BASE_DIR'/master.zip' $url
 cd $BASE_DIR
 
 unzip -j master.zip
+
+rm master.zip

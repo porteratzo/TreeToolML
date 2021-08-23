@@ -1,10 +1,4 @@
-from data_gen_utils.custom_loaders import (
-    tropical_loader,
-    open_loader,
-    paris_loader,
-    data_loader,
-    toronto_loader,
-)
+from data_gen_utils.custom_loaders import *
 from tqdm import tqdm
 import os
 import numpy as np
@@ -48,25 +42,30 @@ class all_data_loader:
             self.open = open_loader(onlyTrees, preprocess)
             self.paris = paris_loader(onlyTrees, preprocess)
             self.toronto = toronto_loader(onlyTrees, preprocess)
+            self.semantic3D = semantic3D(onlyTrees, preprocess)
         else:
             #self.iqumulus = data_loader(onlyTrees, preprocess, train_split)
             self.tropical = data_loader(onlyTrees, preprocess, train_split)
             self.open = data_loader(onlyTrees, preprocess, train_split)
             self.paris = data_loader(onlyTrees, preprocess, train_split)
             self.toronto = data_loader(onlyTrees, preprocess, train_split)
+            self.semantic3D = data_loader(onlyTrees, preprocess, train_split)
         #self.loader_list["iqumulus"] = self.iqumulus
         self.loader_list["tropical"] = self.tropical
         self.loader_list["open"] = self.open
         self.loader_list["paris"] = self.paris
         self.loader_list["toronto"] = self.toronto
+        self.loader_list["semantic"] = self.semantic3D
 
         #self.non_tree_list.append(self.iqumulus)
         self.non_tree_list.append(self.open)
         self.non_tree_list.append(self.paris)
         self.non_tree_list.append(self.toronto)
+        self.non_tree_list.append(self.semantic3D)
         self.tree_list.append(self.open)
         self.tree_list.append(self.paris)
         self.tree_list.append(self.tropical)
+        self.tree_list.append(self.semantic3D)
 
     def load_all(self, dir=None):
         if self.default:

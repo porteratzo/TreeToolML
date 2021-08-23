@@ -11,3 +11,5 @@ wget -c -N -O $BASE_DIR'/Toronto_3D.zip' $url
 cd $BASE_DIR
 
 unzip -j Toronto_3D.zip
+
+rm Toronto_3D.zip

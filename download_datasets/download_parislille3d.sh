@@ -14,3 +14,5 @@ cd $BASE_DIR
 
 #unzip test_10_classes.zip
 unzip training_50_classes.zip
+
+rm training_50_classes.zip

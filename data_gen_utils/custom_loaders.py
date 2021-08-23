@@ -12,9 +12,9 @@ class iqumulus_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/IQmulus/Cassette_GT.ply"):
+    def load_data(self, dir_path="datasets/IQmulus/Cassette_GT.ply"):
         if not self.data_loaded:
-            with open(dir, "rb") as f:
+            with open(dir_path, "rb") as f:
                 plydata = PlyData.read(f)
 
             point_cloud = np.vstack(
@@ -51,9 +51,9 @@ class tropical_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/lucid/1_LidarTreePoinCloudData/4_LidarTreePoinCloudData/*"):
+    def load_data(self, dir_path="datasets/lucid/1_LidarTreePoinCloudData/4_LidarTreePoinCloudData/*"):
         if not self.data_loaded:
-            tree_dirs = glob.glob(dir)
+            tree_dirs = glob.glob(dir_path)
             trees = []
             for i in tree_dirs:
                 point_cloud = pd.read_csv(i, header=None, delimiter=" ").to_numpy().astype(np.float32)
@@ -85,9 +85,9 @@ class open_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/open_tree/*.pcd"):
+    def load_data(self, dir_path="datasets/open_tree/*.pcd"):
         if not self.data_loaded:
-            trees_dir = glob.glob(dir)
+            trees_dir = glob.glob(dir_path)
             labels = []
 
             trees = []
@@ -133,11 +133,11 @@ class toronto_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/Toronto3D/*.ply"):
+    def load_data(self, dir_path="datasets/Toronto3D/*.ply"):
         if not self.data_loaded:
             point_clouds = []
             labels = []
-            for i in glob.glob(dir):
+            for i in glob.glob(dir_path):
                 with open(i, "rb") as f:
                     plydata = PlyData.read(f)
 
@@ -173,13 +173,13 @@ class paris_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/Paris_Lille3D/training_50_classes/*.ply"):
+    def load_data(self, dir_path="datasets/Paris_Lille3D/training_50_classes/*.ply"):
         if not self.data_loaded:
             point_clouds = []
             labels = []
             instances = []
             smallest_instance = 0
-            for i in glob.glob(dir):
+            for i in glob.glob(dir_path):
                 print(os.path.basename(i))
                 with open(i, "rb") as f:
                     plydata = PlyData.read(f)
@@ -222,13 +222,13 @@ class semantic3D(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir="datasets/Semantic3D/*.ply"):
+    def load_data(self, dir_path="datasets/Semantic3D/*.txt"):
         if not self.data_loaded:
             point_clouds = []
             labels = []
             instances = []
             smallest_instance = 0
-            for i in glob.glob(dir):
+            for i in glob.glob(dir_path):
                 print(os.path.basename(i))
                 pc = pd.read_csv(i,
                          header=None,
@@ -241,14 +241,14 @@ class semantic3D(data_loader):
                 points = np.array(points, dtype=np.float32)
                 feat = np.array(feat, dtype=np.float32)
 
-                labels = pd.read_csv(i.replace(".txt", ".labels"),
+                labels_array = pd.read_csv(i.replace(".txt", ".labels"),
                                     header=None,
                                     delim_whitespace=True,
                                     dtype=np.int32).values
-                labels = np.array(labels, dtype=np.int32).reshape((-1,))
+                labels_array = np.array(labels_array, dtype=np.int32).reshape((-1,))
 
                 sub_points, sub_feat, sub_labels = downsample(
-                    points, features=feat, labels=labels, grid_size=grid_size
+                    points, features=feat, labels=labels_array, grid_size=grid_size
                 )
                 
                 instances.append(sub_feat)
