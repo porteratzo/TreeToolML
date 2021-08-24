@@ -113,7 +113,7 @@ def log_string(out_str):
 
 
 def train():
-    writer = SummaryWriter("runs/batchnorm_afineFalse_1")
+    writer = SummaryWriter("runs/batchnorm_afineFalse_10k_1")
     pointclouds = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
     #####DirectionEmbedding
     # with torch.cuda.amp.autocast():
