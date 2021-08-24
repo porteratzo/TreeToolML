@@ -256,9 +256,11 @@ class semantic3D(data_loader):
                     labels.append(sub_labels)
                     point_clouds.append(sub_points)
 
-            self.labels = labels
-            self.instances = instances
-            self.point_cloud = point_clouds
+            self.labels = np.concatenate(labels)
+            self.instances = np.concatenate(instances).reshape(
+                -1,
+            )
+            self.point_cloud = np.vstack(point_clouds)
             self.data_loaded = True
             
 
