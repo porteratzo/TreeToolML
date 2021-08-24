@@ -16,7 +16,10 @@ for keys, i in tqdm(loader.loader_list.items()):
         print(keys.split('_'))
         path = keys.split('_')[1]
         print(path)
-        i.load_data("datasets/Semantic3D/" + path + "*.txt")
+        try:
+            i.load_data("datasets/Semantic3D/" + path + "*.txt")
+        except:
+            pass
     
     if not os.path.isdir("datasets/custom_data"):
         os.mkdir("datasets/custom_data")

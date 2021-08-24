@@ -253,6 +253,7 @@ class semantic3D(data_loader):
                         points, features=feat, labels=labels_array, grid_size=grid_size
                     )
                     if np.isin(self.tree_label, sub_labels):
+                        print(np.unique(sub_feat))
                         instances.append(sub_feat)
                         labels.append(sub_labels)
                         point_clouds.append(sub_points)
