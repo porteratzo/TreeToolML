@@ -230,31 +230,34 @@ class semantic3D(data_loader):
             smallest_instance = 0
             self.tree_label = 3.0
             for i in glob.glob(dir_path):
-                print(os.path.basename(i))
-                pc = pd.read_csv(i,
-                         header=None,
-                         delim_whitespace=True,
-                         dtype=np.float32).values
+                try:
+                    print(os.path.basename(i))
+                    pc = pd.read_csv(i,
+                            header=None,
+                            delim_whitespace=True,
+                            dtype=np.float32).values
 
-                points = pc[:, 0:3]
-                feat = pc[:, [4, 5, 6]]
+                    points = pc[:, 0:3]
+                    feat = pc[:, [4, 5, 6]]
 
-                points = np.array(points, dtype=np.float32)
-                feat = np.array(feat, dtype=np.float32)
+                    points = np.array(points, dtype=np.float32)
+                    feat = np.array(feat, dtype=np.float32)
 
-                labels_array = pd.read_csv(i.replace(".txt", ".labels"),
-                                    header=None,
-                                    delim_whitespace=True,
-                                    dtype=np.int32).values
-                labels_array = np.array(labels_array, dtype=np.int32).reshape((-1,))
+                    labels_array = pd.read_csv(i.replace(".txt", ".labels"),
+                                        header=None,
+                                        delim_whitespace=True,
+                                        dtype=np.int32).values
+                    labels_array = np.array(labels_array, dtype=np.int32).reshape((-1,))
 
-                sub_points, sub_feat, sub_labels = downsample(
-                    points, features=feat, labels=labels_array, grid_size=grid_size
-                )
-                if np.isin(self.tree_label, sub_labels):
-                    instances.append(sub_feat)
-                    labels.append(sub_labels)
-                    point_clouds.append(sub_points)
+                    sub_points, sub_feat, sub_labels = downsample(
+                        points, features=feat, labels=labels_array, grid_size=grid_size
+                    )
+                    if np.isin(self.tree_label, sub_labels):
+                        instances.append(sub_feat)
+                        labels.append(sub_labels)
+                        point_clouds.append(sub_points)
+                except:
+                    continue
 
             self.labels = np.concatenate(labels)
             self.instances = np.concatenate(instances).reshape(
