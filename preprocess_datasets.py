@@ -8,8 +8,14 @@ import os
 loader = all_data_loader(onlyTrees=False, preprocess=True, default=True)
 #%%
 for keys, i in tqdm(loader.loader_list.items()):
-    print(keys)
-    i.load_data()
+    
+    if keys.find('semantic') != -1:
+        print(keys)
+        i.load_data()
+    else:
+        path = keys.split('_')[1]
+        print(path)
+        i.load_data("datasets/Semantic3D/" + path + "*.txt")
     
     if not os.path.isdir("datasets/custom_data"):
         os.mkdir("datasets/custom_data")
