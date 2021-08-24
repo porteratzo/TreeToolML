@@ -254,6 +254,7 @@ class semantic3D(data_loader):
                     )
                     if np.isin(self.tree_label, sub_labels):
                         print(np.unique(sub_feat))
+                        smallest_instance = np.max(sub_feat)
                         instances.append(sub_feat)
                         labels.append(sub_labels)
                         point_clouds.append(sub_points)
