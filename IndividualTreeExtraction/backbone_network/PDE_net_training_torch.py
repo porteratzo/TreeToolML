@@ -182,7 +182,7 @@ def train():
 def train_one_epoch(model, epoch, generator, opt, scaler, scheduler):
     """ops: dict mapping from string to tf ops"""
 
-    num_batches_training = len(generator) // (BATCH_SIZE)
+    num_batches_training = len(generator)
     print("-----------------training--------------------")
     print("training steps: %d" % num_batches_training)
 
