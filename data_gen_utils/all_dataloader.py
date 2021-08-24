@@ -91,11 +91,12 @@ class all_data_loader:
     def load_all(self, dir=None):
         if self.default:
             for key, value in tqdm(self.loader_list.items()):
-                if key.find('semantic') != -1:
+                if key.find('semantic') == -1:
                     value.load_data()
                 else:
                     path = key.split('_')[1]
                     value.load_data("datasets/Semantic3D/" + path + "*.txt")
+                    
         else:
             for key, value in tqdm(self.loader_list.items()):
                 value.load_data(os.path.join(dir, key + ".ply"))

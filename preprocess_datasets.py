@@ -9,7 +9,7 @@ loader = all_data_loader(onlyTrees=False, preprocess=True, default=True)
 #%%
 for keys, i in tqdm(loader.loader_list.items()):
     
-    if keys.find('semantic') != -1:
+    if keys.find('semantic') == -1:
         print(keys)
         i.load_data()
     else:
