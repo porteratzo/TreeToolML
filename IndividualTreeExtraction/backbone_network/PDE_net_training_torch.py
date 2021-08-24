@@ -231,7 +231,7 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler):
 
 def validation(model, generator):
 
-    num_batches_testing = len(generator) // (BATCH_SIZE)
+    num_batches_testing = len(generator)
     total_loss = 0
     total_loss_esd = 0
     total_loss_pd = 0
