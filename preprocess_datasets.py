@@ -13,6 +13,7 @@ for keys, i in tqdm(loader.loader_list.items()):
         print(keys)
         i.load_data()
     else:
+        print(keys.split('_'))
         path = keys.split('_')[1]
         print(path)
         i.load_data("datasets/Semantic3D/" + path + "*.txt")
