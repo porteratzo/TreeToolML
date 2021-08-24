@@ -228,6 +228,7 @@ class semantic3D(data_loader):
             labels = []
             instances = []
             smallest_instance = 0
+            self.tree_label = 3.0
             for i in glob.glob(dir_path):
                 print(os.path.basename(i))
                 pc = pd.read_csv(i,
@@ -250,18 +251,16 @@ class semantic3D(data_loader):
                 sub_points, sub_feat, sub_labels = downsample(
                     points, features=feat, labels=labels_array, grid_size=grid_size
                 )
-                
-                instances.append(sub_feat)
-                labels.append(sub_labels)
-                point_clouds.append(sub_points)
+                if np.isin(self.tree_label, sub_labels):
+                    instances.append(sub_feat)
+                    labels.append(sub_labels)
+                    point_clouds.append(sub_points)
 
-            self.labels = np.concatenate(labels)
-            self.instances = np.concatenate(instances).reshape(
-                -1,
-            )
-            self.point_cloud = np.vstack(point_clouds)
+            self.labels = labels
+            self.instances = instances
+            self.point_cloud = point_clouds
             self.data_loaded = True
-            self.tree_label = 304020000.0
+            
 
         if self.onlyTrees:
             if self.trees is None:
