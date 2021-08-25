@@ -97,10 +97,14 @@ def downsample(points, features=None, labels=None, grid_size=0.6):
             features = np.zeros(points.shape[0])
         if (labels is None):
             labels = np.zeros(points.shape[0])
-
+        
+        classes, counts = np.unique(features, return_counts=True)
+        p_min = np.percentile(counts, 10)
+        p_max = np.percentile(counts, 90)
+        np.mean([i for i in counts if p_max > i > p_min])
         idx = np.arange(points.shape[0])
         np.random.shuffle(idx)
-        sub_idx = idx[:int(points.shape[0]/10)]
+        sub_idx = idx[:int(points.shape[0]*grid_size)]
         out_points = points[sub_idx]
         out_features = features[sub_idx]
         out_labels = labels[sub_idx]
@@ -166,6 +170,7 @@ class data_loader:
                 self.trees = unique_trees
             else:
                 self.trees = tree_points
+            self.trees = [i for i in self.trees if len(i)>400]
             if self.train_split:
                 indexes = np.arange(len(self.trees))
                 self.train_trees, self.test_trees = train_test_split(indexes, test_size=0.2)

@@ -121,12 +121,13 @@ class all_data_loader:
         else:
             return self.tree_list[choice].get_random_forground(train)
 
-    def get_tree_cluster(self, max_trees=4, max_dist=3, train=False):
+    def get_tree_cluster(self, max_trees=4, max_dist=4, train=False):
         number_of_trees = np.random.randint(1, max_trees)
-        xymin = -3
-        xymax = 3
+        xymin = -4
+        xymax = 4
         zmin = -0.2
         zmax = 0.2
+        scale = 0.2
         xyrotmin = -np.deg2rad(5)
         xyrotmax = np.deg2rad(5)
         center = np.array(
@@ -137,24 +138,35 @@ class all_data_loader:
             ]
         )
         cluster = []
+        cluster_center = []
         for i in range(number_of_trees):
             tree = self.get_random_forground(train)
             #R = eulerAnglesToRotationMatrix([0,0,np.random.uniform(0,np.pi*2)])
             R = eulerAnglesToRotationMatrix([np.random.uniform(xyrotmin, xyrotmax),np.random.uniform(xyrotmin, xyrotmax),np.random.uniform(0,np.pi*2)])
-            translation = np.array(
-                [
-                    np.random.uniform(-max_dist, max_dist),
-                    np.random.uniform(-max_dist, max_dist),
-                    np.random.uniform(-0.2, 0.2),
-                ]
-            )
-            t = center + translation
+            while True:
+                translation = np.array(
+                    [
+                        np.random.uniform(-max_dist, max_dist),
+                        np.random.uniform(-max_dist, max_dist),
+                        np.random.uniform(-0.2, 0.2),
+                    ]
+                )
+                t = center + translation
+                
+                if len(cluster_center) == 0:
+                    break
+                dists = np.linalg.norm(cluster_center-t, axis=1)
+                if np.min(dists) > 2:
+                    break
+            
+            scaler = 1 + scale * (np.random.rand() - 0.5)
             rt = np.eye(4)
             rt[:3,3] = t
-            rt[:3,:3] = R
+            rt[:3,:3] = scaler*R
             htree = np.hstack([tree, np.ones_like(tree[:,0:1])])
             new_tree = (rt@htree.T).T[:,:3]
             cluster.append(new_tree)
+            cluster_center.append(t)
 
         labels = [n*np.ones_like(i[:,:1]) for n,i in enumerate(cluster)]
         return cluster, labels

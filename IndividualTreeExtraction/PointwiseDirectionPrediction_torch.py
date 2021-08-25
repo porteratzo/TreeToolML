@@ -18,12 +18,7 @@ def restore_trained_model(NUM_POINT, MODEL_DIR, BATCH_SIZE=1):
     paths = sorted(glob.glob(os.path.join(MODEL_DIR, '*.pt')))
     pointclouds = torch.rand( dtype=torch.float32, size=(BATCH_SIZE, NUM_POINT, 3)).cuda()
     with torch.cuda.amp.autocast():
-        model = PDE_net_torch.get_model_RRFSegNet('PDE_net',
-                                                pointclouds,
-                                                is_training=True,
-                                                weight_decay=0.0001,
-                                                bn_decay=0.0001,
-                                                k=20)
+        model = PDE_net_torch.get_model_RRFSegNet()
     model.cuda()
     checkpoint = torch.load(paths[0])
     model.load_state_dict(checkpoint['model_state_dict'])

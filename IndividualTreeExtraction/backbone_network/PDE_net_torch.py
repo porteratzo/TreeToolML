@@ -147,7 +147,7 @@ class get_model_RRFSegNet(nn.Module):
         )
         torch.nn.init.xavier_uniform(self.end_net1.weight)
         self.end_bn1 = nn.BatchNorm2d(256, affine=False)
-        self.drop_out = nn.Dropout(p=0.3)
+        self.drop_out = nn.Dropout(p=0.4)
         self.end_net2 = nn.Conv2d(256, 64, kernel_size=[1, 1], stride=[1, 1], padding=0)
         torch.nn.init.xavier_uniform(self.end_net2.weight)
         self.end_bn2 = nn.BatchNorm2d(64, affine=False)

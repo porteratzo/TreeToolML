@@ -113,7 +113,7 @@ def log_string(out_str):
 
 
 def train():
-    writer = SummaryWriter("runs/batchnorm_afineFalse_10k_1")
+    writer = SummaryWriter("runs/batchnorm_afineFalse_10k_agressive")
     pointclouds = torch.rand(size=(BATCH_SIZE, NUM_POINT, 3), device=device)
     #####DirectionEmbedding
     # with torch.cuda.amp.autocast():
@@ -121,13 +121,14 @@ def train():
     DeepPointwiseDirections.cuda()
     #writer.add_graph(DeepPointwiseDirections, pointclouds)
     optomizer = Adam(
-        DeepPointwiseDirections.parameters(), weight_decay=0.0001, lr=0.001
+        DeepPointwiseDirections.parameters(), weight_decay=0.0005, lr=0.001
     )
     scaler = torch.cuda.amp.GradScaler()
     scheduler = lr_scheduler.ExponentialLR(optomizer, 0.95)
     ###optimizer--Adam
 
     init_loss = 999.999
+    init_val_loss = 999.999
     for epoch in range(MAX_EPOCH):
         log_string("**** EPOCH %03d ****" % (epoch))
         sys.stdout.flush()
@@ -136,13 +137,13 @@ def train():
         generator_training = tree_dataset(
             TRAIN_DATA_PATH, NUM_POINT
         )
-        train_loader = DataLoader(generator_training, BATCH_SIZE, shuffle=True, num_workers=0)
+        train_loader = DataLoader(generator_training, BATCH_SIZE, shuffle=True, num_workers=1)
 
         ####validating data generator
         generator_val = tree_dataset(
             VALIDATION_PATH, NUM_POINT
         )
-        test_loader = DataLoader(generator_val, BATCH_SIZE, shuffle=True, num_workers=0)
+        test_loader = DataLoader(generator_val, BATCH_SIZE, shuffle=True, num_workers=1)
 
         #####trainging steps
         temp_loss = train_one_epoch(
@@ -163,7 +164,7 @@ def train():
         writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], epoch)
         writer.add_scalar("Loss/validation", val_loss, epoch)
 
-        if (temp_loss < init_loss) or (epoch % 5 == 0):
+        if (temp_loss < init_loss) or (epoch % 10 == 0) or (val_loss < init_val_loss):
             torch.save(
                 {
                     "epoch": epoch,
@@ -174,7 +175,8 @@ def train():
                 },
                 os.path.join(LOG_DIR, "epoch_" + str(epoch) + ".pt"),
             )
-            init_loss = temp_loss
+            init_loss = min(temp_loss, init_loss)
+            init_val_loss = min(val_loss, init_val_loss)
         writer.flush()
     writer.close()
 
@@ -187,13 +189,12 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler):
     print("training steps: %d" % num_batches_training)
 
     total_loss = 0
-    total_loss_esd = 0
-    total_loss_pd = 0
+    acc_loss = 0
+    model.train()
     for i in tqdm(range(num_batches_training)):
         ###
         opt.zero_grad()
         batch_train_data, batch_direction_label_data, _ = next(iter(generator))
-        model.train()
         with torch.cuda.amp.autocast():
             batch_train_data = torch.tensor(batch_train_data, device=device)
             batch_direction_label_data = torch.tensor(
@@ -203,8 +204,8 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler):
             loss_esd_ = Loss_torch.slack_based_direction_loss(
                 y, batch_direction_label_data
             )
-            loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
             total_loss = loss_esd_
+            acc_loss += total_loss
         scaler.scale(total_loss).backward()
         scaler.step(opt)
         scaler.update()
@@ -212,34 +213,30 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler):
 
         if i % 20 == 0:
             print(
-                "loss: %f, loss_esd: %f,loss_pd: %f" % (total_loss, loss_esd_, loss_pd_)
+                "loss: %f" % (total_loss)
             )
     scheduler.step()
 
     print("trianing_log_epoch_%d" % epoch)
     log_string(
-        "epoch: %d, loss: %f, loss_esd: %f,loss_pd: %f"
+        "epoch: %d, loss: %f"
         % (
             epoch,
-            total_loss / (num_batches_training),
-            loss_esd_ / (num_batches_training),
-            loss_pd_ / (num_batches_training),
+            acc_loss / (num_batches_training),
         )
     )
-    return total_loss.cpu() / (num_batches_training)
+    return acc_loss.cpu() / (num_batches_training)
 
 
 def validation(model, generator):
 
     num_batches_testing = len(generator)
-    total_loss = 0
     total_loss_esd = 0
-    total_loss_pd = 0
+    model.eval()
     for _ in tqdm(range(num_batches_testing)):
         ###
         batch_test_data, batch_direction_label_data, _ = next(iter(generator))
         ###
-        model.eval()
         with torch.no_grad():
             with torch.cuda.amp.autocast():
                 y = model(torch.as_tensor(batch_test_data, device=device))
@@ -249,18 +246,15 @@ def validation(model, generator):
                 loss_esd_ = Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data
                 )
-                loss_pd_ = Loss_torch.direction_loss(y, batch_direction_label_data)
-        total_loss_esd = loss_esd_
+        total_loss_esd += loss_esd_
 
     log_string(
-        "val loss: %f, loss_esd: %f, loss_pd: %f"
+        "val loss: %f"
         % (
             total_loss_esd / num_batches_testing,
-            loss_esd_ / num_batches_testing,
-            loss_pd_ / num_batches_testing,
         )
     )
-    return total_loss_esd
+    return total_loss_esd / num_batches_testing
 
 
 if __name__ == "__main__":

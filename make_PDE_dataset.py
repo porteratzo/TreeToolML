@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import os
 
-loader = all_data_loader(onlyTrees=False, preprocess=True, default=False, train_split=True)
+loader = all_data_loader(onlyTrees=False, preprocess=False, default=False, train_split=True)
 
 # %%
 loader.load_all('datasets/custom_data/preprocessed')
@@ -20,7 +20,7 @@ savepathtest = os.path.join('datasets', 'custom_data', 'PDE', 'validating_data')
 if not os.path.isdir(savepathtest):
     os.mkdir(savepathtest)
 #%%
-for i in tqdm(range(10000)):
+for i in tqdm(range(100)):
     while True:
         cluster, labels = loader.get_tree_cluster(train=True)
         array = np.hstack([np.vstack(cluster), np.vstack(labels)]).astype(np.float16)
@@ -29,7 +29,7 @@ for i in tqdm(range(10000)):
 
     np.save(os.path.join(savepathtrain, str(i)+'.npy'), array)
 
-for i in tqdm(range(1000)):
+for i in tqdm(range(100)):
     while True:
         cluster, labels = loader.get_tree_cluster(train=False)
         array = np.hstack([np.vstack(cluster), np.vstack(labels)]).astype(np.float16)

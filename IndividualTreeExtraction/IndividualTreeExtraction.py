@@ -20,7 +20,9 @@ import py_util
 import VoxelTraversalAlgorithm as VTA
 #import AccessibleRegionGrowing as ARG
 import PointwiseDirectionPrediction_torch as PDE_net
-from open3dvis import open3dpaint
+from BatchSampleGenerator_torch import tree_dataset
+from torch.utils.data import DataLoader
+from open3dvis import open3dpaint, o3d_pointSetClass
 import BatchSampleGenerator as BSG
 import Loss_torch
 import torch
@@ -262,6 +264,10 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
     model = PDE_net.restore_trained_model(NUM_POINT, PDE_net_model_path).cuda()
     val_set = py_util.get_data_set(test_data_path)
     generator_val = BSG.minibatch_generator(test_data_path, 1, val_set, NUM_POINT)
+    generator_val = tree_dataset(
+            test_data_path, NUM_POINT
+        )
+    test_loader = DataLoader(generator_val, 1, shuffle=True, num_workers=0)
     ####
     file_list = os.listdir(test_data_path)
     for i in range(len(file_list[:10])):
@@ -269,24 +275,46 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
         filename, _ = os.path.splitext(file_list[i])
         print('Separating ' + filename + '...')
         #### data[x, y, z] original coordinates
-        gt_data = py_util.shuffle_data(py_util.load_data(test_data_path + file_list[i]))[:4096]
-        gt_data = next(generator_val)
-        testdata = gt_data[0][0]
-        directions = gt_data[1][0]
-        labels = gt_data[2][0]
-        
-        ind_trees = [testdata[labels==i] for i in np.unique(gt_data[2])]
+        testdata, directions, labels = next(iter(test_loader))
+        testdata, directions, labels = testdata.squeeze().numpy(), directions.squeeze().numpy(), labels.squeeze().numpy()
+        ind_trees = [testdata[labels==i] for i in np.unique(labels)]
         object_centers = [py_util.compute_object_center(i) for i in ind_trees]
         ####normalized coordinates
-        nor_testdata = testdata
+        nor_testdata = torch.tensor(testdata, device='cuda').squeeze()
         ####Pointwise direction prediction
         xyz_direction = PDE_net.prediction(model, nor_testdata)
         ####tree center detection
+        xyz = xyz_direction[:,:3]
+        angles = np.rad2deg(np.arctan2(directions[:,1], directions[:,0]))
+        ps = o3d_pointSetClass(xyz, angles)
+        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+
+        angles = np.rad2deg(np.arctan2(directions[:,2], directions[:,0]))
+        ps = o3d_pointSetClass(xyz, angles)
+        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+
+        angles = np.rad2deg(np.arctan2(directions[:,2], directions[:,1]))
+        ps = o3d_pointSetClass(xyz, angles)
+        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+
         object_center_list = center_detection(xyz_direction, voxel_size, ARe, Nd)
         loss_esd_ = Loss_torch.slack_based_direction_loss(torch.tensor(xyz_direction.T[np.newaxis,3:6,:].astype(np.float32)) ,torch.tensor(directions[np.newaxis,:].astype(np.float32)))
         print(loss_esd_)
-        open3dpaint(ind_trees+[makesphere(i, 0.1) for i in object_centers], pointsize=5)
-        open3dpaint(ind_trees+[makesphere(object_center_list[0], 0.1)], pointsize=5)
+        dirsxyz = xyz_direction[:,3:]
+        
+        angles = np.rad2deg(np.arctan2(dirsxyz[:,1], dirsxyz[:,0]))
+        ps = o3d_pointSetClass(xyz, angles)
+        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+
+        angles = np.rad2deg(np.arctan2(dirsxyz[:,2], dirsxyz[:,0]))
+        ps = o3d_pointSetClass(xyz, angles)
+        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+
+        angles = np.rad2deg(np.arctan2(dirsxyz[:,2], dirsxyz[:,1]))
+        ps = o3d_pointSetClass(xyz, angles)
+        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+
+        continue
 
         ####for single tree clusters
         if np.size(object_center_list, axis=0) <= 1:
