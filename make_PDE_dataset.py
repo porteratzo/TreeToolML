@@ -20,7 +20,7 @@ savepathtest = os.path.join('datasets', 'custom_data', 'PDE', 'validating_data')
 if not os.path.isdir(savepathtest):
     os.mkdir(savepathtest)
 #%%
-for i in tqdm(range(100)):
+for i in tqdm(range(10000)):
     while True:
         cluster, labels = loader.get_tree_cluster(train=True)
         array = np.hstack([np.vstack(cluster), np.vstack(labels)]).astype(np.float16)
@@ -29,7 +29,7 @@ for i in tqdm(range(100)):
 
     np.save(os.path.join(savepathtrain, str(i)+'.npy'), array)
 
-for i in tqdm(range(100)):
+for i in tqdm(range(2000)):
     while True:
         cluster, labels = loader.get_tree_cluster(train=False)
         array = np.hstack([np.vstack(cluster), np.vstack(labels)]).astype(np.float16)
