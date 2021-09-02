@@ -17,11 +17,11 @@ sys.path.append('Libraries')
 sys.path.append('utils')
 sys.path.append('..')
 import py_util
-import VoxelTraversalAlgorithm as VTA
 #import AccessibleRegionGrowing as ARG
 import PointwiseDirectionPrediction_torch as PDE_net
 from BatchSampleGenerator_torch import tree_dataset
 from torch.utils.data import DataLoader
+from center_detection.center_detection import center_detection
 from open3dvis import open3dpaint, o3d_pointSetClass
 import BatchSampleGenerator as BSG
 import Loss_torch
@@ -73,151 +73,6 @@ def object_xoy_bounding(xyz, object_xyz, sphere_level, bounding_order=1):
     modify_object_index_xy = np.intersect1d(modify_object_index_x[0], modify_object_index_y[0])
     modify_object_index_xy = list(modify_object_index_xy)
     return modify_object_index_xy
-
-def direction_vote_voxels(points, directions, voxel_size, num_voxel_xyz, min_xyz):
-    numpints = np.size(points, 0)
-    output_voxel_direction_count = np.zeros((int(num_voxel_xyz[0]), int(num_voxel_xyz[1]), int(num_voxel_xyz[2])), dtype=int)
-
-    ######
-    per_voxel_direction_start_points = [[[[] for _ in range(int(num_voxel_xyz[2]))] for _ in range(int(num_voxel_xyz[1]))] for _ in range(int(num_voxel_xyz[0]))]
-    ####
-    for i in range(numpints):
-        visited_voxels = VTA.voxel_traversal(points[i, :], directions[i, :], min_xyz, num_voxel_xyz, voxel_size)
-        for j in range(len(visited_voxels)):
-            output_voxel_direction_count[int(visited_voxels[j][0]), int(visited_voxels[j][1]), int(visited_voxels[j][2])] += 1
-            per_voxel_direction_start_points[int(visited_voxels[j][0])][int(visited_voxels[j][1])][int(visited_voxels[j][2])].append(i)
-
-    return output_voxel_direction_count, per_voxel_direction_start_points
-
-def center_detection_xoy(voxel_direction_count, num_voxel_xyz, center_direction_count_th):
-
-    numVoxel_x = num_voxel_xyz[0]
-    numVoxel_y = num_voxel_xyz[1]
-    object_center_voxel_list = []
-
-    for i in range(int(numVoxel_x - 2)):
-        for j in range(int(numVoxel_y - 2)):
-            temp_object_voxel_dir_count = voxel_direction_count[i + 1, j + 1]
-
-            if temp_object_voxel_dir_count < center_direction_count_th:
-                continue
-
-            temp_neighbors = [voxel_direction_count[i, j], voxel_direction_count[i + 1, j],
-                              voxel_direction_count[i + 2, j],
-                              voxel_direction_count[i, j + 1], voxel_direction_count[i + 2, j + 1],
-                              voxel_direction_count[i, j + 2], voxel_direction_count[i + 1, j + 2],
-                              voxel_direction_count[i + 2, j + 2]]
-            max_neighbors = np.max(np.array(temp_neighbors))
-
-            if temp_object_voxel_dir_count > max_neighbors:
-                object_center_voxel_list.append([i + 1, j + 1])
-
-    return np.vstack(object_center_voxel_list)
-
-############################################################
-def center_detection(data, voxel_size, angle_threshold, center_direction_count_th=20):
-    '''detect the tree centers'''
-
-    object_xyz_list = []
-    xyz = data[:, :3]
-    directions = data[:, 3:]
-    min_xyz = np.min(xyz, axis=0)
-    max_xyz = np.max(xyz, axis=0)
-    delta_xyz = max_xyz - min_xyz
-    num_voxel_xyz = np.ceil(delta_xyz / voxel_size)
-
-    #######################################################################
-    ############################Center Detection###########################
-    #######################################################################
-    output_voxel_direction_count, per_voxel_direction_start_points = direction_vote_voxels(xyz,
-                                                                                           directions,
-                                                                                           voxel_size,
-                                                                                           num_voxel_xyz,
-                                                                                           min_xyz)
-    #####centers in xoy plane
-    output_voxel_direction_count_xoy = np.sum(output_voxel_direction_count, axis=2)
-    object_centers_xoy = center_detection_xoy(output_voxel_direction_count_xoy,
-                                                     num_voxel_xyz[:2],
-                                                     center_direction_count_th)
-
-    ####centers in z-axis
-    for i in range(np.size(object_centers_xoy, 0)):
-        temp_object_center_xoy = object_centers_xoy[i, :]
-        ####
-        temp_centre_xyz = np.array([temp_object_center_xoy[0], temp_object_center_xoy[1]])
-        temp_centre_xyz = temp_centre_xyz * voxel_size + min_xyz[:2] # + voxel_size / 2.0
-        ####
-        center_xbottom = temp_centre_xyz[0] - voxel_size / 2.0
-        center_xup = temp_centre_xyz[0] + voxel_size / 2.0
-        center_ybottom = temp_centre_xyz[1] - voxel_size / 2.0
-        center_yup = temp_centre_xyz[1] + voxel_size / 2.0
-        x_vaild_range = np.where((xyz[:, 0] > center_xbottom) == (xyz[:, 0] < center_xup))
-        y_vaild_range = np.where((xyz[:, 1] > center_ybottom) == (xyz[:, 1] < center_yup))
-        xy_intersection_index = list(set(x_vaild_range[0]).intersection(set(y_vaild_range[0])))
-
-        ####discard the fake centers
-        if len(xy_intersection_index) == 0:
-            continue
-        #####
-        output_voxel_direction_count_z = output_voxel_direction_count[temp_object_center_xoy[0], temp_object_center_xoy[1], :]
-        temp_index = np.where(output_voxel_direction_count_z == np.max(output_voxel_direction_count_z))
-        object_xyz_list.append([temp_object_center_xoy[0], temp_object_center_xoy[1], temp_index[0][0]])
-
-    object_xyz_list = np.vstack(object_xyz_list)
-    object_xyz_list = object_xyz_list * voxel_size + min_xyz # + voxel_size / 2.0
-
-    ####### further refine detected centers using intersection directions
-    ####### Note that the following steps have not been discussed in our paper #############
-    ####### If higher efficiency is required, these steps can be discarded ###############
-    if False:
-        objectVoxelMask_list = []
-        for i in range(np.size(object_xyz_list, 0)):
-
-            center_xyz = object_xyz_list[i, :]
-            _, _, objectVoxelMask = individual_tree_separation(xyz,
-                                                            directions,
-                                                            center_xyz,
-                                                            voxel_size,
-                                                            min_xyz,
-                                                            num_voxel_xyz,
-                                                            angle_threshold)
-
-            objectVoxelMask_index = np.where(objectVoxelMask == True)
-            if np.size(objectVoxelMask_index[0], 0) == 0:
-                continue
-            temp_objectvoxels = []
-            for j in range(np.size(objectVoxelMask_index[0], 0)):
-                temp_objectvoxel_index = [objectVoxelMask_index[0][j], objectVoxelMask_index[1][j], objectVoxelMask_index[2][j]]
-                temp_objectvoxels.append(temp_objectvoxel_index)
-            objectVoxelMask_list.append(temp_objectvoxels)
-
-        #######
-        final_object_center_index = []
-        for i in range(len(objectVoxelMask_list)):
-            #####
-            temp_object_voxels = np.vstack(objectVoxelMask_list[i])
-            #####copy array
-            temp_all_object_voxels = objectVoxelMask_list[:]
-            del temp_all_object_voxels[i]
-
-            #######
-            for j in range(len(temp_all_object_voxels)):
-
-                temp_remain_object_voxels = np.vstack(temp_all_object_voxels[j])
-                temp_intersection = np.array([x for x in set(tuple(x) for x in temp_object_voxels) & set(tuple(x) for x in temp_remain_object_voxels)])
-
-                if np.size(temp_intersection, 0) > 0:
-                    temp_object_voxels = set(tuple(x) for x in temp_object_voxels).difference(set(tuple(x) for x in temp_intersection))
-                    temp_object_voxels = np.array([list(x) for x in temp_object_voxels])
-
-                    if np.size(temp_object_voxels, 0) == 0:
-                        break        #
-            if np.size(temp_object_voxels, 0) >= 3:
-                final_object_center_index.append(i)
-
-        object_xyz_list = object_xyz_list[final_object_center_index, :]
-    print('Num of Tree Centers: %d'%int(np.size(object_xyz_list, 0)))
-    return object_xyz_list
 
 ############################################################
 def individual_tree_separation(xyz, directions, center_xyz, voxel_size, min_xyz, num_voxel_xyz,
@@ -284,35 +139,45 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
         ####Pointwise direction prediction
         xyz_direction = PDE_net.prediction(model, nor_testdata)
         ####tree center detection
-        xyz = xyz_direction[:,:3]
-        angles = np.rad2deg(np.arctan2(directions[:,1], directions[:,0]))
-        ps = o3d_pointSetClass(xyz, angles)
-        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+        if False:
+            xyz = xyz_direction[:,:3]
+            angles = np.rad2deg(np.arctan2(directions[:,1], directions[:,0]))
+            ps = o3d_pointSetClass(xyz, angles)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
 
-        angles = np.rad2deg(np.arctan2(directions[:,2], directions[:,0]))
-        ps = o3d_pointSetClass(xyz, angles)
-        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+            angles = np.rad2deg(np.arctan2(directions[:,2], directions[:,0]))
+            ps = o3d_pointSetClass(xyz, angles)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
 
-        angles = np.rad2deg(np.arctan2(directions[:,2], directions[:,1]))
-        ps = o3d_pointSetClass(xyz, angles)
-        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+            angles = np.rad2deg(np.arctan2(directions[:,2], directions[:,1]))
+            ps = o3d_pointSetClass(xyz, angles)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
 
-        object_center_list = center_detection(xyz_direction, voxel_size, ARe, Nd)
-        loss_esd_ = Loss_torch.slack_based_direction_loss(torch.tensor(xyz_direction.T[np.newaxis,3:6,:].astype(np.float32)) ,torch.tensor(directions[np.newaxis,:].astype(np.float32)))
-        print(loss_esd_)
-        dirsxyz = xyz_direction[:,3:]
-        
-        angles = np.rad2deg(np.arctan2(dirsxyz[:,1], dirsxyz[:,0]))
-        ps = o3d_pointSetClass(xyz, angles)
-        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+            object_center_list = center_detection(xyz_direction, voxel_size, ARe, Nd)
+            loss_esd_ = Loss_torch.slack_based_direction_loss(torch.tensor(xyz_direction.T[np.newaxis,3:6,:].astype(np.float32)) ,torch.tensor(directions[np.newaxis,:].astype(np.float32)))
+            print(loss_esd_)
+            dirsxyz = xyz_direction[:,3:]
+            
+            angles = np.rad2deg(np.arctan2(dirsxyz[:,1], dirsxyz[:,0]))
+            ps = o3d_pointSetClass(xyz, angles)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
 
-        angles = np.rad2deg(np.arctan2(dirsxyz[:,2], dirsxyz[:,0]))
-        ps = o3d_pointSetClass(xyz, angles)
-        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+            angles = np.rad2deg(np.arctan2(dirsxyz[:,2], dirsxyz[:,0]))
+            ps = o3d_pointSetClass(xyz, angles)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
 
-        angles = np.rad2deg(np.arctan2(dirsxyz[:,2], dirsxyz[:,1]))
-        ps = o3d_pointSetClass(xyz, angles)
-        open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+            angles = np.rad2deg(np.arctan2(dirsxyz[:,2], dirsxyz[:,1]))
+            ps = o3d_pointSetClass(xyz, angles)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
+        else:
+            xyz = xyz_direction[:,:3]
+            ps = o3d_pointSetClass(xyz)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_centers], pointsize=5, axis=True)
+
+            object_center_list = center_detection(xyz_direction, voxel_size, ARe, Nd)
+            loss_esd_ = Loss_torch.slack_based_direction_loss(torch.tensor(xyz_direction.T[np.newaxis,3:6,:].astype(np.float32)) ,torch.tensor(directions[np.newaxis,:].astype(np.float32)))
+            print(loss_esd_)
+            open3dpaint([ps]+[makesphere(i, 0.1) for i in object_center_list], pointsize=5, axis=True)
 
         continue
 
