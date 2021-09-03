@@ -76,17 +76,20 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
         xyz = testdata.cpu().float().detach().numpy()
         dirs = out.cpu().detach().float().numpy().transpose(0,2,1)
         xyzdir = np.concatenate([xyz, dirs], axis=2)
-        object_center_list = [center_detection(i, voxel_size, ARe, Nd) for i in xyzdir]
-        matches = [match_centers(i,j) for i,j in zip(sep_trees, object_center_list)]
-        gt_centers = [len(i) for i in sep_trees]
-        counts = [[len(i),len(np.unique(j))] for i,j in zip(sep_trees, matches)]
-        
-        tps = sum([min(i) for i in counts])
-        fps = sum([i[0]-i[1] for i in counts if i[0]-i[1] < 0])
-        fns = sum([i[0]-i[1] for i in counts if i[0]-i[1] > 0])
-        totals['tp'][0] += tps
-        totals['fp'][0] += fps
-        totals['fn'][0] += fns
+        try:
+            object_center_list = [center_detection(i, voxel_size, ARe, Nd) for i in xyzdir]
+            matches = [match_centers(i,j) for i,j in zip(sep_trees, object_center_list)]
+            gt_centers = [len(i) for i in sep_trees]
+            counts = [[len(i),len(np.unique(j))] for i,j in zip(sep_trees, matches)]
+
+            tps = sum([min(i) for i in counts])
+            fps = sum([i[0]-i[1] for i in counts if i[0]-i[1] < 0])
+            fns = sum([i[0]-i[1] for i in counts if i[0]-i[1] > 0])
+            totals['tp'][0] += tps
+            totals['fp'][0] += fps
+            totals['fn'][0] += fns
+        except:
+            continue
     df = pd.DataFrame().from_dict(totals)
     df.to_csv(result_path + '/cm.csv')
 
