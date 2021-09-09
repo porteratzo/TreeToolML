@@ -4,10 +4,12 @@ from plyfile import PlyData
 import glob
 import pandas as pd
 import os
-from data_gen_utils.dataloaders import data_loader, downsample
+from datapreparation.data_gen_utils.dataloaders import data_loader, downsample
 
 down_size = 12000
 grid_size = 0.08
+
+
 class iqumulus_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
@@ -25,7 +27,11 @@ class iqumulus_loader(data_loader):
                 ]
             ).T
             label = np.array(plydata.elements[0].data["class"]).astype(np.int32)
-            instance = np.array(plydata.elements[0].data["id"]).astype(np.float32).reshape(-1, 1)
+            instance = (
+                np.array(plydata.elements[0].data["id"])
+                .astype(np.float32)
+                .reshape(-1, 1)
+            )
 
             self.point_cloud = point_cloud
             self.instances = instance
@@ -33,12 +39,17 @@ class iqumulus_loader(data_loader):
             self.data_loaded = True
             self.tree_label = 304020000.0
             if self.preprocess:
-                classes, counts = np.unique(self.instances[self.labels==self.tree_label], return_counts=True)
-                tree_mean = np.mean(counts[counts>500])
+                classes, counts = np.unique(
+                    self.instances[self.labels == self.tree_label], return_counts=True
+                )
+                tree_mean = np.mean(counts[counts > 500])
                 downsample_ratio = 1 / (tree_mean / down_size)
                 sub_points, sub_feat, sub_labels = downsample(
-                            self.point_cloud, features=self.instances, labels=self.labels, grid_size=downsample_ratio
-                        )
+                    self.point_cloud,
+                    features=self.instances,
+                    labels=self.labels,
+                    grid_size=downsample_ratio,
+                )
                 self.labels = sub_labels
                 self.instances = sub_feat
                 self.point_cloud = sub_points
@@ -53,29 +64,41 @@ class tropical_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
         super().__init__(onlyTrees=onlyTrees, preprocess=preprocess)
 
-    def load_data(self, dir_path="datasets/lucid/1_LidarTreePoinCloudData/4_LidarTreePoinCloudData/*"):
+    def load_data(
+        self,
+        dir_path="datasets/lucid/1_LidarTreePoinCloudData/4_LidarTreePoinCloudData/*",
+    ):
         if not self.data_loaded:
             tree_dirs = glob.glob(dir_path)
             trees = []
             for i in tree_dirs:
-                point_cloud = pd.read_csv(i, header=None, delimiter=" ").to_numpy().astype(np.float32)
+                point_cloud = (
+                    pd.read_csv(i, header=None, delimiter=" ")
+                    .to_numpy()
+                    .astype(np.float32)
+                )
                 trees.append(point_cloud)
             self.point_cloud = np.vstack(trees)
             self.labels = np.ones_like(self.point_cloud[:, 0])
             self.instances = np.concatenate(
                 [np.ones_like(i[:, 0]) * n for n, i in enumerate(trees)]
             )
-            
+
             self.data_loaded = True
             self.tree_label = 1.0
 
             if self.preprocess:
-                classes, counts = np.unique(self.instances[self.labels==self.tree_label], return_counts=True)
-                tree_mean = np.mean(counts[counts>500])
+                classes, counts = np.unique(
+                    self.instances[self.labels == self.tree_label], return_counts=True
+                )
+                tree_mean = np.mean(counts[counts > 500])
                 downsample_ratio = 1 / (tree_mean / down_size)
                 sub_points, sub_feat, sub_labels = downsample(
-                            self.point_cloud, features=self.instances, labels=self.labels, grid_size=downsample_ratio
-                        )
+                    self.point_cloud,
+                    features=self.instances,
+                    labels=self.labels,
+                    grid_size=downsample_ratio,
+                )
                 self.labels = sub_labels
                 self.instances = sub_feat
                 self.point_cloud = sub_points
@@ -98,10 +121,12 @@ class open_loader(data_loader):
             trees = []
             for i in trees_dir:
                 label = os.path.basename(i).split("_")[0]
-                if label not in ['tree', 'Octree-terrain.pcd']:
+                if label not in ["tree", "Octree-terrain.pcd"]:
                     continue
                 labels.append(label)
-                point_cloud = np.asarray(o3d.io.read_point_cloud(i).points).astype(np.float32)
+                point_cloud = np.asarray(o3d.io.read_point_cloud(i).points).astype(
+                    np.float32
+                )
                 trees.append(point_cloud)
             self.point_cloud = np.vstack([i for i in trees])
             unique_labels = set(labels)
@@ -113,21 +138,23 @@ class open_loader(data_loader):
                 ]
             )
             self.instances = np.concatenate(
-                [
-                    np.ones_like(i[:, 0]) * n
-                    for n, i in enumerate(trees)
-                ]
+                [np.ones_like(i[:, 0]) * n for n, i in enumerate(trees)]
             )
 
             self.data_loaded = True
             self.tree_label = label_dict["tree"]
             if self.preprocess:
-                classes, counts = np.unique(self.instances[self.labels==self.tree_label], return_counts=True)
-                tree_mean = np.mean(counts[counts>500])
+                classes, counts = np.unique(
+                    self.instances[self.labels == self.tree_label], return_counts=True
+                )
+                tree_mean = np.mean(counts[counts > 500])
                 downsample_ratio = 1 / (tree_mean / down_size)
                 sub_points, sub_feat, sub_labels = downsample(
-                            self.point_cloud, features=self.instances, labels=self.labels, grid_size=downsample_ratio
-                        )
+                    self.point_cloud,
+                    features=self.instances,
+                    labels=self.labels,
+                    grid_size=downsample_ratio,
+                )
                 self.labels = sub_labels
                 self.instances = sub_feat
                 self.point_cloud = sub_points
@@ -169,8 +196,11 @@ class toronto_loader(data_loader):
 
             if self.preprocess:
                 sub_points, sub_feat, sub_labels = downsample(
-                            self.point_cloud, features=self.instances, labels=self.labels, grid_size=0.1
-                        )
+                    self.point_cloud,
+                    features=self.instances,
+                    labels=self.labels,
+                    grid_size=0.1,
+                )
                 self.labels = sub_labels
                 self.instances = sub_feat
                 self.point_cloud = sub_points
@@ -212,7 +242,7 @@ class paris_loader(data_loader):
                 instances.append(instance + smallest_instance)
                 smallest_instance = np.max(instances[-1])
                 labels.append(label)
-                point_clouds.append(point_cloud)             
+                point_clouds.append(point_cloud)
 
             self.labels = np.concatenate(labels)
             self.instances = np.concatenate(instances).reshape(
@@ -220,17 +250,21 @@ class paris_loader(data_loader):
             )
             self.point_cloud = np.vstack(point_clouds)
             if self.preprocess:
-                classes, counts = np.unique(self.instances[self.labels==self.tree_label], return_counts=True)
-                tree_mean = np.mean(counts[counts>500])
+                classes, counts = np.unique(
+                    self.instances[self.labels == self.tree_label], return_counts=True
+                )
+                tree_mean = np.mean(counts[counts > 500])
                 downsample_ratio = 1 / (tree_mean / down_size)
                 sub_points, sub_feat, sub_labels = downsample(
-                            self.point_cloud, features=self.instances, labels=self.labels, grid_size=downsample_ratio
-                        )
+                    self.point_cloud,
+                    features=self.instances,
+                    labels=self.labels,
+                    grid_size=downsample_ratio,
+                )
                 self.labels = sub_labels
                 self.instances = sub_feat
                 self.point_cloud = sub_points
             self.data_loaded = True
-            
 
         if self.onlyTrees:
             if self.trees is None:
@@ -252,10 +286,9 @@ class semantic3D(data_loader):
             for i in glob.glob(dir_path):
                 try:
                     print(os.path.basename(i))
-                    pc = pd.read_csv(i,
-                            header=None,
-                            delim_whitespace=True,
-                            dtype=np.float32).values
+                    pc = pd.read_csv(
+                        i, header=None, delim_whitespace=True, dtype=np.float32
+                    ).values
 
                     points = pc[:, 0:3]
                     feat = pc[:, [4, 5, 6]]
@@ -263,14 +296,19 @@ class semantic3D(data_loader):
                     points = np.array(points, dtype=np.float32)
                     feat = np.array(feat, dtype=np.float32)
 
-                    labels_array = pd.read_csv(i.replace(".txt", ".labels"),
-                                        header=None,
-                                        delim_whitespace=True,
-                                        dtype=np.int32).values
+                    labels_array = pd.read_csv(
+                        i.replace(".txt", ".labels"),
+                        header=None,
+                        delim_whitespace=True,
+                        dtype=np.int32,
+                    ).values
                     labels_array = np.array(labels_array, dtype=np.int32).reshape((-1,))
                     if self.preprocess:
                         sub_points, sub_feat, sub_labels = downsample(
-                            points, features=feat, labels=labels_array, grid_size=grid_size
+                            points,
+                            features=feat,
+                            labels=labels_array,
+                            grid_size=grid_size,
                         )
                         if np.isin(self.tree_label, sub_labels):
                             print(np.unique(sub_feat))
@@ -294,7 +332,6 @@ class semantic3D(data_loader):
             )
             self.point_cloud = np.vstack(point_clouds)
             self.data_loaded = True
-            
 
         if self.onlyTrees:
             if self.trees is None:

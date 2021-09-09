@@ -5,20 +5,12 @@ Created on Mon July 11 18:50:39 2020
 """
 import numpy as np
 import os
-import sys
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(BASE_DIR, 'voxel_traversal'))
-sys.path.append(os.path.join(BASE_DIR, 'accessible_region'))
-sys.path.append(os.path.join(BASE_DIR, 'utils'))
-sys.path.append('Libraries')
-sys.path.append('utils')
-sys.path.append('..')
-import py_util
-import PointwiseDirectionPrediction_torch as PDE_net
+import IndividualTreeExtraction.utils.py_util as py_util
+from IndividualTreeExtraction.utils.py_util import compute_object_center
+import IndividualTreeExtraction.PointwiseDirectionPrediction_torch as PDE_net
 from BatchSampleGenerator_torch import tree_dataset
 from torch.utils.data import DataLoader
-from center_detection.center_detection import center_detection
+from IndividualTreeExtraction.center_detection.center_detection import center_detection
 import torch
 from tqdm import tqdm
 from scipy.spatial import distance_matrix
@@ -44,14 +36,6 @@ def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
         ]
     ).T
     return sphere
-
-############################################################
-def compute_object_center(sample_xyz):
-    min_xyz = np.min(sample_xyz, axis=0)
-    max_xyz = np.max(sample_xyz, axis=0)
-    deta_central_xyz = (max_xyz - min_xyz) / 2.0
-    central_xyz = deta_central_xyz + min_xyz
-    return central_xyz
 
 
 def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, voxel_size, Nd, ARe):

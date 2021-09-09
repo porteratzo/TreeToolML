@@ -7,7 +7,6 @@ import numpy as np
 import os
 import sys
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, 'voxel_traversal'))

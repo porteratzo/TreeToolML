@@ -2,9 +2,9 @@
 from collections import defaultdict
 import open3d as o3d
 from Libraries.Visualization import open3dpaint, open3dpaint_non_block
-from data_gen_utils.all_dataloader import all_data_loader
-from data_gen_utils.dataloaders import save_cloud, load_cloud
-from data_gen_utils.custom_loaders import data_loader
+from datapreparation.data_gen_utils.all_dataloader import all_data_loader
+from datapreparation.data_gen_utils.dataloaders import save_cloud, load_cloud
+from datapreparation.data_gen_utils.custom_loaders import data_loader
 import numpy as np
 import glob
 

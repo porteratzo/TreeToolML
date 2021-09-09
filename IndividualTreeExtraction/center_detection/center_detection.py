@@ -1,7 +1,5 @@
 import numpy as np
-import sys
-sys.path.append('..')
-import VoxelTraversalAlgorithm as VTA
+import IndividualTreeExtraction.voxel_traversal.VoxelTraversalAlgorithm as VTA
 
 def direction_vote_voxels(points, directions, voxel_size, num_voxel_xyz, min_xyz):
     # accumulate count of visited voxels, and accumulate which point traverses each voxel

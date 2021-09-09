@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "/home/omar/Documents/Mine/Git/Libraries",
+        "./IndividualTreeExtraction/backbone_network",
+        "./IndividualTreeExtraction/utils",
+        "./datapreparation"
+    ]
+}
