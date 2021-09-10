@@ -27,7 +27,7 @@ else:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def argparse():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument(
         "--model",
         default='IndividualTreeExtraction/backbone_network/pre_trained_PDE_net/',
