@@ -77,7 +77,7 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
     ####
     totals = {'tp':0,'fp':0,'fn':0}
     distss = []
-    for i in tqdm(range(len(test_loader))):
+    for i in tqdm(range(len(test_loader)-497)):
         #### data[x, y, z] original coordinates
         testdata, directions, labels = next(iter(test_loader))
         tree_n = [len(np.unique(i)) for i in labels]
@@ -95,15 +95,15 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
                 dists = np.sort(dist_mat)[:,0][np.sort(dist_mat)[:,0] < 0.3]
                 true_matches = np.unique(close_matches)
                 tps = len(true_matches)
-                fps = len(true_matches) - len(close_matches)
-                fns = len(true_matches) - len(gt_center)
+                fps = max(len(predicted_center) - len(true_matches),0)
+                fns = max(len(gt_center) - len(true_matches),0)
                 totals['tp'] += tps
                 totals['fp'] += fps
                 totals['fn'] += fns            
                 distss.extend(dists)
         except:
             continue
-    totals['mse'] = np.mean(distss)
+    totals['mse'] = [np.mean(distss)]
     df = pd.DataFrame().from_dict(totals)
     df.to_csv(result_path + '/cm.csv')
 
