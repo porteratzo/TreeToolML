@@ -42,8 +42,10 @@ def center_detection_xoy(voxel_direction_count, num_voxel_xyz, center_direction_
 
             if temp_object_voxel_dir_count > max_neighbors:
                 object_center_voxel_list.append([i + 1, j + 1])
-
-    return np.vstack(object_center_voxel_list)
+    if len(object_center_voxel_list) > 0:
+        return np.vstack(object_center_voxel_list)
+    else:
+        return []
 
 
 ############################################################
@@ -95,7 +97,7 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
         temp_index = np.where(output_voxel_direction_count_z == np.max(output_voxel_direction_count_z))
         object_xyz_list.append([temp_object_center_xoy[0], temp_object_center_xoy[1], temp_index[0][0]])
 
-    if len(object_xyz_list):
+    if len(object_xyz_list)>0:
         object_xyz_list = np.vstack(object_xyz_list)
         object_xyz_list = object_xyz_list * voxel_size + min_xyz # + voxel_size / 2.0
         print('Num of Tree Centers: %d'%int(np.size(object_xyz_list, 0)))
