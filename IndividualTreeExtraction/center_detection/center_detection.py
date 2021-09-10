@@ -95,9 +95,12 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
         temp_index = np.where(output_voxel_direction_count_z == np.max(output_voxel_direction_count_z))
         object_xyz_list.append([temp_object_center_xoy[0], temp_object_center_xoy[1], temp_index[0][0]])
 
-    object_xyz_list = np.vstack(object_xyz_list)
-    object_xyz_list = object_xyz_list * voxel_size + min_xyz # + voxel_size / 2.0
-
+    if len(object_xyz_list):
+        object_xyz_list = np.vstack(object_xyz_list)
+        object_xyz_list = object_xyz_list * voxel_size + min_xyz # + voxel_size / 2.0
+        print('Num of Tree Centers: %d'%int(np.size(object_xyz_list, 0)))
+    else:
+        object_xyz_list=np.array([[999,999,999]])
     ####### further refine detected centers using intersection directions
     ####### Note that the following steps have not been discussed in our paper #############
     ####### If higher efficiency is required, these steps can be discarded ###############
@@ -148,5 +151,5 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
                 final_object_center_index.append(i)
 
         object_xyz_list = object_xyz_list[final_object_center_index, :]
-    print('Num of Tree Centers: %d'%int(np.size(object_xyz_list, 0)))
+    
     return object_xyz_list

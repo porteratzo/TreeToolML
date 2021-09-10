@@ -19,6 +19,7 @@ from scipy.spatial import distance_matrix
 import pandas as pd
 import socket
 from argparse import ArgumentParser
+# python center_test.py --model /data2/omardata/TreeTransformer/IndividualTreeExtraction/backbone_network/pre_trained_PDE_net --valid_path /data2/omardata/TreeTransformer/datasets/custom_data/PDE/validating_data
 
 print(socket.gethostname())
 if socket.gethostname() == "omar-G5-KC":
