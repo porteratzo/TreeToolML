@@ -77,7 +77,7 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
     ####
     totals = {'tp':0,'fp':0,'fn':0}
     distss = []
-    for i in tqdm(range(len(test_loader)-497)):
+    for i in tqdm(range(len(test_loader))):
         #### data[x, y, z] original coordinates
         testdata, directions, labels = next(iter(test_loader))
         tree_n = [len(np.unique(i)) for i in labels]
