@@ -15,6 +15,13 @@ import torch
 from tqdm import tqdm
 from scipy.spatial import distance_matrix
 import pandas as pd
+import socket
+
+print(socket.gethostname())
+if socket.gethostname() == "omar-G5-KC":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+else:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def centerdists(gt_centers, pred_centers):
