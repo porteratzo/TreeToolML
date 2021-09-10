@@ -3,6 +3,8 @@ Created on Mon July 11 18:50:39 2020
 
 @author: Haifeng Luo
 """
+import sys
+sys.path.append('..')
 import numpy as np
 import os
 import IndividualTreeExtraction.utils.py_util as py_util
