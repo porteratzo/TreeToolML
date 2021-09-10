@@ -16,6 +16,7 @@ from tqdm import tqdm
 from scipy.spatial import distance_matrix
 import pandas as pd
 import socket
+from argparse import ArgumentParser
 
 print(socket.gethostname())
 if socket.gethostname() == "omar-G5-KC":
@@ -23,6 +24,21 @@ if socket.gethostname() == "omar-G5-KC":
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
+def argparse():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model",
+        default='IndividualTreeExtraction/backbone_network/pre_trained_PDE_net/',
+        help="Log dir [default: log]",
+    )
+    parser.add_argument(
+        "--valid_path",
+        default='datasets/custom_data/PDE/validating_data/',
+        # default='/container/directory/data/validating_data/',
+        help="Make sure the source validating-data files path",
+    )
+
+    return parser.parse_args()
 
 def centerdists(gt_centers, pred_centers):
     distmat = distance_matrix(gt_centers, pred_centers)
@@ -90,14 +106,14 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
 
 
 if __name__ == '__main__':
-
+    args = argparse()
     NUM_POINT = 4096
     Nd = 80
     ARe = np.pi / 9.0
     voxel_size = 0.08
     #######
-    PDE_net_model_path ='IndividualTreeExtraction/backbone_network/pre_trained_PDE_net/'
-    test_data_path = 'datasets/custom_data/PDE/validating_data/'
+    PDE_net_model_path = args.model
+    test_data_path = args.valid_path
     result_path = './result/'
     if not os.path.exists(result_path): os.mkdir(result_path)
 
