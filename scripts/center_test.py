@@ -8,7 +8,7 @@ import os
 import IndividualTreeExtraction.utils.py_util as py_util
 from IndividualTreeExtraction.utils.py_util import compute_object_center
 import IndividualTreeExtraction.PointwiseDirectionPrediction_torch as PDE_net
-from BatchSampleGenerator_torch import tree_dataset
+from IndividualTreeExtraction.backbone_network.BatchSampleGenerator_torch import tree_dataset
 from torch.utils.data import DataLoader
 from IndividualTreeExtraction.center_detection.center_detection import center_detection
 import torch
@@ -17,9 +17,9 @@ from scipy.spatial import distance_matrix
 import pandas as pd
 
 
-def match_centers(gt_centers, pred_centers):
+def centerdists(gt_centers, pred_centers):
     distmat = distance_matrix(gt_centers, pred_centers)
-    return np.argsort(distmat,axis=1)[:,0]
+    return distmat
 
 
 def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
@@ -42,38 +42,42 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
     '''Individual Tree Extraction'''
     ####restore trained PDE-net
     PDE_net_model_path
-    model = PDE_net.restore_trained_model(NUM_POINT, PDE_net_model_path).cuda()
+    model = PDE_net.restore_trained_model(PDE_net_model_path).cuda()
     generator_val = tree_dataset(
             test_data_path, NUM_POINT
         )
     test_loader = DataLoader(generator_val, 4, shuffle=True, num_workers=0)
     model.eval()
     ####
-    totals = {'tp':[0],'fp':[0],'fn':[0]}
+    totals = {'tp':0,'fp':0,'fn':0}
+    distss = []
     for i in tqdm(range(len(test_loader))):
         #### data[x, y, z] original coordinates
         testdata, directions, labels = next(iter(test_loader))
         tree_n = [len(np.unique(i)) for i in labels]
-        sep_trees = [[py_util.compute_object_center(testdata[n].numpy()[i.numpy()==j]) for j in np.unique(i)] for n,i in enumerate(labels)]
+        gt_centers = [[py_util.compute_object_center(testdata[n].numpy()[i.numpy()==j]) for j in np.unique(i)] for n,i in enumerate(labels)]
         with torch.cuda.amp.autocast():
             out = model(testdata.cuda())
         xyz = testdata.cpu().float().detach().numpy()
         dirs = out.cpu().detach().float().numpy().transpose(0,2,1)
         xyzdir = np.concatenate([xyz, dirs], axis=2)
+        predicted_centers = [center_detection(i, voxel_size, ARe, Nd) for i in xyzdir]
         try:
-            object_center_list = [center_detection(i, voxel_size, ARe, Nd) for i in xyzdir]
-            matches = [match_centers(i,j) for i,j in zip(sep_trees, object_center_list)]
-            gt_centers = [len(i) for i in sep_trees]
-            counts = [[len(i),len(np.unique(j))] for i,j in zip(sep_trees, matches)]
-
-            tps = sum([min(i) for i in counts])
-            fps = sum([i[0]-i[1] for i in counts if i[0]-i[1] < 0])
-            fns = sum([i[0]-i[1] for i in counts if i[0]-i[1] > 0])
-            totals['tp'][0] += tps
-            totals['fp'][0] += fps
-            totals['fn'][0] += fns
+            for gt_center, predicted_center in zip(gt_centers,predicted_centers):
+                dist_mat = centerdists(gt_center, predicted_center)
+                close_matches = np.argsort(dist_mat)[:,0][np.sort(dist_mat)[:,0] < 0.3]
+                dists = np.sort(dist_mat)[:,0][np.sort(dist_mat)[:,0] < 0.3]
+                true_matches = np.unique(close_matches)
+                tps = len(true_matches)
+                fps = len(true_matches) - len(close_matches)
+                fns = len(true_matches) - len(gt_center)
+                totals['tp'] += tps
+                totals['fp'] += fps
+                totals['fn'] += fns            
+                distss.extend(dists)
         except:
             continue
+    totals['mse'] = np.mean(distss)
     df = pd.DataFrame().from_dict(totals)
     df.to_csv(result_path + '/cm.csv')
 

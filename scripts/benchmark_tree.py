@@ -3,20 +3,12 @@ import open3d
 import sys
 import numpy as np
 import os
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(BASE_DIR, 'voxel_traversal'))
-sys.path.append(os.path.join(BASE_DIR, 'accessible_region'))
-sys.path.append(os.path.join(BASE_DIR, 'utils'))
-sys.path.append('Libraries')
-sys.path.append('utils')
-sys.path.append('..')
 from open3dvis import open3dpaint, o3d_pointSetClass
 import pdal
 import os
-import PointwiseDirectionPrediction_torch as PDE_net
+import IndividualTreeExtraction.PointwiseDirectionPrediction_torch as PDE_net
 import py_util
-from center_detection.center_detection import center_detection
+from IndividualTreeExtraction.center_detection.center_detection import center_detection
 import torch
 
 def FloorRemove(
@@ -52,7 +44,6 @@ def FloorRemove(
 def preprocess_data(points):
     temp_xyz = py_util.normalize(points)
     return temp_xyz
-
 
 
 PointCloud = open3d.io.read_point_cloud('/home/omar/Documents/Mine/tests/NistClouds/downsampledlesscloudEURO4.pcd')

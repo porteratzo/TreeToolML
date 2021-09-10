@@ -8,7 +8,7 @@ import os
 import sys
 import torch
 import numpy as np
-import PDE_net_torch
+import IndividualTreeExtraction.backbone_network.PDE_net_torch as PDE_net_torch
 import glob
 
 def restore_trained_model(MODEL_DIR):

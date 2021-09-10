@@ -15,12 +15,12 @@ sys.path.append(os.path.join(BASE_DIR, 'utils'))
 sys.path.append('Libraries')
 sys.path.append('utils')
 sys.path.append('..')
-import py_util
+import IndividualTreeExtraction.utils.py_util
 #import AccessibleRegionGrowing as ARG
-import PointwiseDirectionPrediction_torch as PDE_net
+import IndividualTreeExtraction.PointwiseDirectionPrediction_torch as PDE_net
 from BatchSampleGenerator_torch import tree_dataset
 from torch.utils.data import DataLoader
-from center_detection.center_detection import center_detection
+from IndividualTreeExtraction.center_detection.center_detection import center_detection
 from open3dvis import open3dpaint, o3d_pointSetClass
 import BatchSampleGenerator as BSG
 import Loss_torch
