@@ -15,15 +15,15 @@ sys.path.append(os.path.join(BASE_DIR, 'utils'))
 sys.path.append('Libraries')
 sys.path.append('utils')
 sys.path.append('..')
-import IndividualTreeExtraction.utils.py_util
+import IndividualTreeExtraction.utils.py_util as py_util
 #import AccessibleRegionGrowing as ARG
 import IndividualTreeExtraction.PointwiseDirectionPrediction_torch as PDE_net
-from BatchSampleGenerator_torch import tree_dataset
+from IndividualTreeExtraction.backbone_network.BatchSampleGenerator_torch import tree_dataset
 from torch.utils.data import DataLoader
 from IndividualTreeExtraction.center_detection.center_detection import center_detection
 from open3dvis import open3dpaint, o3d_pointSetClass
-import BatchSampleGenerator as BSG
-import Loss_torch
+import IndividualTreeExtraction.backbone_network.BatchSampleGenerator as BSG
+import IndividualTreeExtraction.backbone_network.Loss_torch as Loss_torch
 import torch
 
 
@@ -115,7 +115,7 @@ def individual_tree_extraction(PDE_net_model_path, test_data_path, result_path, 
     '''Individual Tree Extraction'''
     ####restore trained PDE-net
     PDE_net_model_path
-    model = PDE_net.restore_trained_model(NUM_POINT, PDE_net_model_path).cuda()
+    model = PDE_net.restore_trained_model(PDE_net_model_path).cuda()
     val_set = py_util.get_data_set(test_data_path)
     generator_val = BSG.minibatch_generator(test_data_path, 1, val_set, NUM_POINT)
     generator_val = tree_dataset(
