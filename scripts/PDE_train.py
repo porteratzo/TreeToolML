@@ -1,6 +1,8 @@
 import os
 import socket
 
+import sys
+sys.path.append('.')
 print(socket.gethostname())
 if socket.gethostname() == "omar-G5-KC":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
