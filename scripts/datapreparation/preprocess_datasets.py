@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
 from TreeToolML.data.data_gen_utils.dataloaders import save_cloud
 from TreeToolML.config.config import combine_cfgs
