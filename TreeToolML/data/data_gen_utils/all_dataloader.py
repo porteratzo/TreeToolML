@@ -1,4 +1,4 @@
-from datapreparation.data_gen_utils.custom_loaders import *
+from TreeToolML.data.data_gen_utils.custom_loaders import *
 from tqdm import tqdm
 import os
 import numpy as np

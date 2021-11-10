@@ -29,7 +29,6 @@ def save_cloud(dir, points, labels=None, instances=None):
     array = np.vstack(
         [points.T, label.reshape(-1, elems), instance.reshape(-1, elems)]
     ).T
-
     vertex = np.empty(
         len(array),
         dtype=[("x", "f4"), ("y", "f4"), ("z", "f4"), ("class", "i4"), ("id", "f4")],

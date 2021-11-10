@@ -4,5 +4,6 @@
         "./IndividualTreeExtraction/backbone_network",
         "./IndividualTreeExtraction/utils",
         "./datapreparation"
-    ]
+    ],
+    "python.formatting.provider": "black"
 }

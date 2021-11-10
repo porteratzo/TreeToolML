@@ -3,6 +3,26 @@ from yacs.config import CfgNode
 # YACS overwrite these settings using YAML
 _C = CfgNode()
 
+_C.VALIDATION = CfgNode()
+_C.VALIDATION.PATH = 'datasets/custom_data/PDE/validating_data'
+
+_C.TRAIN = CfgNode()
+_C.TRAIN.LOG_DIR = 'tests'
+_C.TRAIN.N_POINTS = 4096
+_C.TRAIN.EPOCHS = 100
+_C.TRAIN.BATCH_SIZE = 12
+_C.TRAIN.PATH = 'datasets/custom_data/PDE/training_data'
+
+_C.TRAIN.HYPER_PARAMETERS = CfgNode()
+_C.TRAIN.HYPER_PARAMETERS.LR = 0.001
+_C.TRAIN.HYPER_PARAMETERS.DECAY_RATE = 0.95
+
+_C.TRAIN.LOSS = CfgNode()
+_C.TRAIN.LOSS.L2 = 0.095
+
+_C.MODEL = CfgNode()
+_C.MODEL.NAME = 'RRFSegNet'
+
 # data augmentation parameters with albumentations library
 _C.DATA_PREPROCESSING = CfgNode()
 _C.DATA_PREPROCESSING.DATA_PATH = "datasets/custom_data"

@@ -1,20 +1,8 @@
-"""
-In theory, the backbone network can be any semantic segmentation
-framework that directly takes discrete points as input.
-
-Created on Mon July 11 18:50:39 2020
-
-@author: Haifeng Luo
-"""
-import os
-import sys
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
+from .build_arch import ARCH_REGISTRY
+
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using {} device".format(device))
@@ -24,88 +12,71 @@ if device == "cuda":
     torch.backends.cudnn.benchmark = True
 
 
+def init_weights(m):
+    if isinstance(m, nn.Conv2d):
+        torch.nn.init.xavier_uniform(m.weight)
+
+
+def build_conv_block(input_shape, filters, use_dropout=False):
+    conv_block = []
+    conv_block += (
+        nn.Conv2d(input_shape, filters, kernel_size=[1, 1], stride=[1, 1], padding=0),
+    )
+    conv_block += (nn.BatchNorm2d(filters, affine=False),)
+    conv_block += (nn.ReLU(),)
+    if use_dropout:
+        conv_block += (nn.Dropout(),)
+    return nn.Sequential(*conv_block)
+
+
 class relation_reasoning_layers(nn.Module):
     def __init__(self, input_shape, nodes_list):
         super(relation_reasoning_layers, self).__init__()
-        self.conv1 = nn.Conv2d(
-            input_shape, nodes_list[0], kernel_size=[1, 1], stride=[1, 1], padding=0
+        self.block1 = nn.Sequential(
+            build_conv_block(input_shape, nodes_list[0]),
+            build_conv_block(nodes_list[0], nodes_list[1]),
         )
-        torch.nn.init.xavier_uniform(self.conv1.weight)
-        self.bn1 = nn.BatchNorm2d(nodes_list[0], affine=False)
-        self.conv2 = nn.Conv2d(
-            nodes_list[0], nodes_list[1], kernel_size=[1, 1], stride=[1, 1], padding=0
-        )
-        torch.nn.init.xavier_uniform(self.conv2.weight)
-        self.bn2 = nn.BatchNorm2d(nodes_list[1], affine=False)
-
-        self.conv3 = nn.Conv2d(
-            nodes_list[1], nodes_list[2], kernel_size=[1, 1], stride=[1, 1], padding=0
-        )
-        torch.nn.init.xavier_uniform(self.conv3.weight)
-        self.bn3 = nn.BatchNorm2d(nodes_list[2], affine=False)
+        self.block1.apply(init_weights)
+        self.block2 = nn.Sequential(build_conv_block(nodes_list[1], nodes_list[2]))
+        self.block2.apply(init_weights)
 
     def forward(self, x):
-        x = x.permute([0, 3, 2, 1])
-        x = F.relu(self.bn1(self.conv1(x)))
-        x, _ = torch.max(F.relu(self.bn2(self.conv2(x))), dim=2, keepdim=True)
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = x.permute([0, 3, 2, 1])
+        x = self.block1(x)
+        x, _ = torch.max(x, dim=2, keepdim=True)
+        x = self.block2(x)
         return x
 
 
 def pairwise_distance(point_cloud):
-    """Compute pairwise distance of a point cloud.
-
-    Args:
-        point_cloud: tensor (batch_size, num_points, num_dims)
-
-    Returns:
-        pairwise distance: (batch_size, num_points, num_points)
-    """
     return torch.cdist(point_cloud, point_cloud) ** 2
 
 
 def knn(adj_matrix, k=5):
-    """Get KNN based on the pairwise distance.
-    Args:
-      pairwise distance: (batch_size, num_points, num_points)
-      k: int
-
-    Returns:
-      nearest neighbors: (batch_size, num_points, k)
-    """
     neg_adj = -adj_matrix
-    _, nn_idx = torch.topk(neg_adj, k=k + 1)  ### remove the current point
+    _, nn_idx = torch.topk(neg_adj, k=k + 1)
     return nn_idx[:, :, 1:]
 
 
 def get_relation_features(point_features, nn_idx, k):
+    #output batch, points, k features, [original point, n nearest neighbor, n+1 nearest neighbor]
+    #prepare data
     og_batch_size = point_features.shape[0]
     point_features = torch.squeeze(point_features)
     if og_batch_size == 1:
         point_features = torch.unsqueeze(point_features, 0)
 
+    batch_size = point_features.shape[0]
+    channels = point_features.shape[1]
+
+    # get neigbors from nn_idx
     point_cloud_central = point_features
-
-    point_cloud_shape = point_features.shape
-    batch_size = point_cloud_shape[0]
-    num_points = point_cloud_shape[1]
-    num_dims = point_cloud_shape[2]
-
-    idx_ = torch.range(0, batch_size - 1, device=device) * num_points
-    idx_ = torch.reshape(idx_, [batch_size, 1, 1])
-
-    point_cloud_flat = torch.reshape(point_features, [-1, num_dims])
-    point_cloud_neighbors = point_cloud_flat[(nn_idx + idx_).long()]
+    point_cloud_neighbors = point_features[torch.arange(batch_size)[:,None,None,None],torch.arange(channels)[None,:,None,None],nn_idx[:,None,:,:]]
     point_cloud_central = torch.unsqueeze(point_cloud_central, dim=-2)
 
+    #get neigbors relative to point
     point_cloud_central = point_cloud_central.repeat(1, 1, k, 1)
     point_cloud_neighbors = point_cloud_neighbors - point_cloud_central
 
-    #############
-    # rank_state_sums = int(comb(k, 2))
-    # list_rank_state = list(combinations(list(range(k)), 2))
-    #############
 
     num_vertex_pairs = k
     vertex_pairs_list = [(i, i + 1) for i in range(k - 1)]
@@ -114,10 +85,10 @@ def get_relation_features(point_features, nn_idx, k):
 
         temp_concat = torch.cat(
             [
-                point_cloud_neighbors[:, :, vertex_pairs_list[i][0], :],
-                point_cloud_neighbors[:, :, vertex_pairs_list[i][1], :],
+                point_cloud_neighbors[:, :,vertex_pairs_list[i][0],:],
+                point_cloud_neighbors[:, :,vertex_pairs_list[i][1],:],
             ],
-            dim=-1,
+            dim=-2,
         )
 
         temp_concat = torch.unsqueeze(temp_concat, -2)
@@ -128,32 +99,24 @@ def get_relation_features(point_features, nn_idx, k):
 
     point_features = torch.unsqueeze(point_features, dim=-2)
     point_features = point_features.repeat(1, 1, num_vertex_pairs, 1)
-    relation_features = torch.cat([point_features, relation_features], dim=-1)
+    relation_features = torch.cat([point_features, relation_features], dim=1)
     return relation_features
 
-
+@ARCH_REGISTRY.register("RRFSegNet")
 class get_model_RRFSegNet(nn.Module):
-    def __init__(self):
+    def __init__(self, MODEL_CFG):
         super(get_model_RRFSegNet, self).__init__()
         self.net_1 = relation_reasoning_layers(9, nodes_list=[64, 64, 64])
-        ### layer_2
         self.net_2 = relation_reasoning_layers(192, nodes_list=[128, 128, 128])
-        ###generate global features
         self.global_net = nn.Conv2d(
             192, 1024, kernel_size=[1, 1], stride=[1, 1], padding=0
         )
-        self.end_net1 = nn.Conv2d(
-            1216, 256, kernel_size=[1, 1], stride=[1, 1], padding=0
+        self.end_net = nn.Sequential(
+            build_conv_block(1216, 256, True),
+            build_conv_block(256, 64),
+            nn.Conv2d(64, 3, kernel_size=[1, 1], stride=[1, 1], padding=0),
+            nn.BatchNorm2d(3, affine=False),
         )
-        torch.nn.init.xavier_uniform(self.end_net1.weight)
-        self.end_bn1 = nn.BatchNorm2d(256, affine=False)
-        self.drop_out = nn.Dropout(p=0.4)
-        self.end_net2 = nn.Conv2d(256, 64, kernel_size=[1, 1], stride=[1, 1], padding=0)
-        torch.nn.init.xavier_uniform(self.end_net2.weight)
-        self.end_bn2 = nn.BatchNorm2d(64, affine=False)
-        self.end_net3 = nn.Conv2d(64, 3, kernel_size=[1, 1], stride=[1, 1], padding=0)
-        torch.nn.init.xavier_uniform(self.end_net3.weight)
-        self.end_bn3 = nn.BatchNorm2d(3, affine=False)
 
     def forward(self, x):
         points = x
@@ -162,25 +125,25 @@ class get_model_RRFSegNet(nn.Module):
         adj = pairwise_distance(Position)
         nn_idx = knn(adj, k=20)
 
+        points = points.permute(0,2,1)
+        nn_idx = nn_idx.permute(0,2,1)
         relation_features1 = get_relation_features(points, nn_idx=nn_idx, k=20)
         out_net1 = self.net_1(relation_features1)
 
         relation_features2 = get_relation_features(out_net1, nn_idx=nn_idx, k=20)
         out_net2 = self.net_2(relation_features2)
 
-        global_net_in = torch.cat([out_net1, out_net2], dim=3)
-        global_net_in = global_net_in.permute(0, 3, 2, 1)
+        global_net_in = torch.cat([out_net1, out_net2], dim=1)
         global_net_out = self.global_net(global_net_in)
         global_net, _ = torch.max(global_net_out, dim=-1, keepdim=True)
         global_net = global_net.repeat([1, 1, 1, num_point])
-        global_net = global_net.permute(0, 3, 2, 1)
-        concat = torch.cat([global_net, out_net1, out_net2], dim=3)
-        concat = concat.permute(0, 3, 2, 1)
-        out = F.relu(self.end_bn1(self.end_net1(concat)))
-        out = self.drop_out(out)
-        out = F.relu(self.end_bn2(self.end_net2(out)))
-        out = self.end_bn3(self.end_net3(out))
+        concat = torch.cat([global_net, out_net1, out_net2], dim=1)
+        out = self.end_net(concat)
+
+        og_batch_size = out.shape[0]
         out = torch.squeeze(out)
+        if og_batch_size == 1:
+            out = torch.unsqueeze(out, 0)
         return out
 
 

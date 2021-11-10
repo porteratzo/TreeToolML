@@ -1,0 +1,9 @@
+TRAIN:
+  PATH: datasets/custom_data/PDE/training_data
+  BATCH_SIZE: 8
+
+VALIDATION:
+  PATH: datasets/custom_data/PDE/validating_data
+
+MODEL:
+  NAME: 'RRFSegNet'

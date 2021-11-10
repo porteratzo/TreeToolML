@@ -1,5 +1,5 @@
-from TreeToolML.datapreparation.data_gen_utils.all_dataloader import all_data_loader
-from TreeToolML.datapreparation.data_gen_utils.dataloaders import save_cloud
+from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
+from TreeToolML.data.data_gen_utils.dataloaders import save_cloud
 from TreeToolML.config.config import combine_cfgs
 from TreeToolML.utils.default_parser import default_argument_parser
 from tqdm import tqdm
@@ -14,11 +14,10 @@ def main(args):
     data_path = cfg.DATA_PREPROCESSING.DATA_PATH + "/preprocessed"
 
     for keys, i in tqdm(loader.loader_list.items()):
-
         print(keys)
         i.load_data()
 
-        if not os.path.isdir():
+        if not os.path.isdir(data_path):
             os.makedirs(data_path, exist_ok=True)
 
         buffer_label = copy.copy(i.labels)

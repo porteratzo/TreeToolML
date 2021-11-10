@@ -1,1 +1,3 @@
-python IndividualTreeExtraction/backbone_network/PDE_net_training_torch.py
+source ~/anaconda3/etc/profile.d/conda.sh
+conda activate TreeTool
+python scripts/PDE_net_training_torch.py

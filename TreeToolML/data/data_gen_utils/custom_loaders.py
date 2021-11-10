@@ -4,7 +4,7 @@ from plyfile import PlyData
 import glob
 import pandas as pd
 import os
-from datapreparation.data_gen_utils.dataloaders import data_loader, downsample
+from TreeToolML.data.data_gen_utils.dataloaders import data_loader, downsample
 
 down_size = 12000
 grid_size = 0.08
@@ -66,7 +66,7 @@ class tropical_loader(data_loader):
 
     def load_data(
         self,
-        dir_path="datasets/lucid/1_LidarTreePoinCloudData/4_LidarTreePoinCloudData/*",
+        dir_path="datasets/lucid/*",
     ):
         if not self.data_loaded:
             tree_dirs = glob.glob(dir_path)
