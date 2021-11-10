@@ -66,7 +66,7 @@ class tropical_loader(data_loader):
 
     def load_data(
         self,
-        dir_path="datasets/lucid/*",
+        dir_path="datasets/lucid/*.txt",
     ):
         if not self.data_loaded:
             tree_dirs = glob.glob(dir_path)
