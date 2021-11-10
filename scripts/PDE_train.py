@@ -181,6 +181,7 @@ def validation(model, generator):
                     y, batch_direction_label_data
                 )
         total_loss_esd += loss_esd_
+    return total_loss_esd.cpu()/ num_batches_testing
 
 
 if __name__ == "__main__":
