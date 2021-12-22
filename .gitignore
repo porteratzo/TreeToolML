@@ -133,3 +133,5 @@ dmypy.json
 /open3d_l
 /tests
 /test
+/results
+/benchmark

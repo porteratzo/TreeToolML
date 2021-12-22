@@ -8,7 +8,7 @@ import os
 import sys
 import torch
 import numpy as np
-import IndividualTreeExtraction.backbone_network.PDE_net_torch as PDE_net_torch
+import TreeToolML.IndividualTreeExtraction.backbone_network.PDE_net_torch as PDE_net_torch
 import glob
 
 def restore_trained_model(MODEL_DIR):
@@ -22,19 +22,31 @@ def restore_trained_model(MODEL_DIR):
     return model
 
 
-def prediction(model, testdata):
+def prediction(model, testdata, args):
+    if next(model.parameters()).is_cuda:
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    datatype = torch.float16 if (device == "cuda") and args.amp else torch.float32
 
     batch_train_data = torch.as_tensor(testdata)
-    batch_train_data = torch.unsqueeze(batch_train_data, 0)
+    if len(batch_train_data.shape) <= 2:
+        batch_train_data = torch.unsqueeze(batch_train_data, 0)
+    batch_train_data = batch_train_data.to(datatype).to(device)
     with torch.no_grad():
-        with torch.cuda.amp.autocast():
+        if (args.amp) and device == "cuda":
+            with torch.cuda.amp.autocast():
+                model.eval()
+                xyz_direction = model(batch_train_data)
+        else:
             model.eval()
-            xyz_direction = model(batch_train_data.cuda())
+            xyz_direction = model(batch_train_data)
     xyz_direction = xyz_direction.cpu().numpy()
     testdata = np.squeeze(batch_train_data.cpu().numpy())
-    pde_ = np.squeeze(xyz_direction).T
+    pde_ = np.squeeze(np.transpose(xyz_direction,[0,2,1]))
     ####################
-    xyz_direction = np.concatenate([testdata, pde_], -1)
+    xyz_direction = np.concatenate([testdata, pde_], -1).astype(np.float32)
     return xyz_direction
 
 

@@ -23,6 +23,12 @@ space-separated "PATH.KEY VALUE" pairs.
         nargs=argparse.REMAINDER,
     )
     parser.add_argument(
-        "--gpu_number", type=int, default=-1, help="number of gpus *per machine*"
+        "--device", type=str, default='gpu', help="number of gpus *per machine*"
+    )
+    parser.add_argument(
+        "--gpu_number", type=int, default=0, help="number of gpus *per machine*"
+    )
+    parser.add_argument(
+        "--amp", type=int, default=0, help="number of gpus *per machine*"
     )
     return parser

@@ -1,4 +1,6 @@
+from numpy.random.mtrand import normal
 from TreeToolML.data.data_gen_utils.custom_loaders import *
+from TreeToolML.IndividualTreeExtraction.utils.py_util import normalize
 from tqdm import tqdm
 import os
 import numpy as np
@@ -88,41 +90,35 @@ class all_data_loader:
 
     def get_random_forground(self, train=False):
         choice = np.random.choice(len(self.tree_list))
-        if choice == 2:
-            return self.tree_list[choice].get_random_forground(train) * 0.5
-        else:
-            return self.tree_list[choice].get_random_forground(train)
+        return self.tree_list[choice].get_random_forground(train)
 
     def get_tree_cluster(
         self,
         max_trees=4,
-        max_dist=4,
         train=False,
         translation_xy=4,
         translation_z=0.2,
         scale=0.2,
         xy_rotation=0,
         dist_between=3,
+        do_normalize=False,
+        zero_floor = True,
     ):
         number_of_trees = np.random.randint(1, max_trees + 1)
-        xymin = -translation_xy
-        xymax = translation_xy
-        zmin = -translation_z
-        zmax = translation_z
         scale = scale
         xyrotmin = -np.deg2rad(xy_rotation)
         xyrotmax = np.deg2rad(xy_rotation)
-        center = np.array(
-            [
-                np.random.uniform(xymin, xymax),
-                np.random.uniform(xymin, xymax),
-                np.random.uniform(zmin, zmax),
-            ]
-        )
         cluster = []
         cluster_center = []
         for i in range(number_of_trees):
             tree = self.get_random_forground(train)
+
+            if do_normalize:
+                tree = normalize(tree)
+
+            if zero_floor:
+                tree = tree - np.multiply(np.min(tree,0),[0,0,1])
+
             # R = eulerAnglesToRotationMatrix([0,0,np.random.uniform(0,np.pi*2)])
             R = eulerAnglesToRotationMatrix(
                 [
@@ -134,27 +130,26 @@ class all_data_loader:
             while True:
                 translation = np.array(
                     [
-                        np.random.uniform(-max_dist, max_dist),
-                        np.random.uniform(-max_dist, max_dist),
-                        np.random.uniform(-0.2, 0.2),
+                        np.random.uniform(-translation_xy, translation_xy),
+                        np.random.uniform(-translation_xy, translation_xy),
+                        np.random.uniform(-translation_z, translation_z),
                     ]
                 )
-                t = center + translation
 
                 if len(cluster_center) == 0:
                     break
-                dists = np.linalg.norm(cluster_center - t, axis=1)
+                dists = np.linalg.norm(cluster_center - translation, axis=1)
                 if np.min(dists) > dist_between:
                     break
 
             scaler = 1 + scale * (np.random.rand() - 0.5)
             rt = np.eye(4)
-            rt[:3, 3] = t
+            rt[:3, 3] = translation
             rt[:3, :3] = scaler * R
             htree = np.hstack([tree, np.ones_like(tree[:, 0:1])])
-            new_tree = (rt @ htree.T).T[:, :3]
+            new_tree = (rt @ htree.T).T[:,:3]
             cluster.append(new_tree)
-            cluster_center.append(t)
+            cluster_center.append(translation)
 
         labels = [n * np.ones_like(i[:, :1]) for n, i in enumerate(cluster)]
         return cluster, labels

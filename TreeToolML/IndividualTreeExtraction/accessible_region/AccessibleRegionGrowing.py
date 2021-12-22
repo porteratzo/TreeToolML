@@ -7,11 +7,9 @@ Created on Mon July 11 18:50:39 2020
 import numpy as np
 import os
 import sys
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, 'voxel_region_grow'))
+sys.path.append('/home/omar/Documents/Mine/Git/TreeToolML/TreeToolML/IndividualTreeExtraction/voxel_region_grow')
+#import TreeToolML.IndividualTreeExtraction.voxel_region_grow.VoxelRegionGrow
 import VoxelRegionGrow
-
 
 def detect_accessible_region(input_xyz, point_directions, center_xyz, voxel_size, angle_threshold=np.pi / 9):
     """
@@ -114,7 +112,7 @@ def voxelization(accessible_region, accessible_index, voxel_size, center_xyz, mi
 
 ############################################################
 def voxel_region_grow(output_voxels, seed):
-    voxelRG = VoxelRegionGrow.Build(output_voxels)
+    voxelRG = VoxelRegionGrow.Build(output_voxels.astype(np.int32))
     objcetMask = voxelRG.Run(seed)
     objcetMaskVoxelIndex = np.vstack(np.where(np.array(objcetMask) == 1)).T
     objcetMaskVoxelIndex = [list(tempMaskVoxelIndex) for tempMaskVoxelIndex in objcetMaskVoxelIndex]

@@ -1,0 +1,24 @@
+_BASE_: ../RRFSegNet.yaml
+
+TRAIN:
+  MODEL_NAME: FILE
+  PATH: datasets/custom_data/PDE/training_data
+  BATCH_SIZE: 8
+
+VALIDATION:
+  PATH: datasets/custom_data/PDE/validating_data 
+
+DATA_CREATION:
+  CENTER_METHOD: 1
+  TRAIN_AMOUNT: 10000
+  TEST_AMOUNT: 2000
+  MIN_SIZE: 4096
+  AUGMENTATION:
+    MAX_TREES: 16
+    TRANSLATION_XY: 1.0
+    TRANSLATION_Z: 0.02
+    SCALE: 0.6
+    XY_ROTATION: 5.0
+    MIN_DIST_BETWEEN: 0.05
+    DO_NORMALIZE: 1
+    ZERO_FLOOR: 1

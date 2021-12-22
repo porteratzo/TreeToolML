@@ -4,3 +4,5 @@ torchaudio==0.7.2
 cudatoolkit=11.0
 PDAL
 -c pytorch
+conda install -c conda-forge/label/gcc7 qhull
+conda install -c conda-forge -c davidcaron

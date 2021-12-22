@@ -9,7 +9,19 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "args": [
+                "--cfg",
+                "configs/RRFSegNet.yaml",
+                "--amp",
+                "1",
+                "--device",
+                "gpu",
+                "TRAIN.BATCH_SIZE",
+                "4",
+                "VALIDATION.BATCH_SIZE",
+                "16"
+            ]
         },
         {
             "name": "Python: Train",
@@ -17,7 +29,44 @@
             "request": "launch",
             "program": "scripts/PDE_train.py",
             "console": "integratedTerminal",
-            "args": ["--cfg","configs/RRFSegNet.yaml"]
+            "args": [
+                "--cfg",
+                "configs/RRFSegNet.yaml",
+                "--amp",
+                "1",
+                "--device",
+                "gpu",
+                "TRAIN.BATCH_SIZE",
+                "4"
+            ]
+        },
+        {
+            "name": "Python: Vis",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/Tree_visualize.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--cfg",
+                "configs/RRFSegNet.yaml",
+                "--amp",
+                "0",
+                "--device",
+                "gpu",
+                "TRAIN.BATCH_SIZE",
+                "4"
+            ]
+        },
+        {
+            "name": "Python: make",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/datapreparation/make_PDE_dataset.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--cfg",
+                "configs/datasets/trunks.yaml",
+            ]
         }
     ]
 }

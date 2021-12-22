@@ -18,15 +18,15 @@ def main(args):
     )
 
     loader.load_all("datasets/custom_data/preprocessed")
-    savepath = os.path.join("datasets", "custom_data", "PDE")
+    savepath = os.path.join("datasets", "custom_data", cfg.TRAIN.MODEL_NAME)
     if not os.path.isdir(savepath):
         os.mkdir(savepath)
 
-    savepathtrain = os.path.join("datasets", "custom_data", "PDE", "training_data")
+    savepathtrain = os.path.join(savepath, "training_data")
     if not os.path.isdir(savepathtrain):
         os.mkdir(savepathtrain)
 
-    savepathtest = os.path.join("datasets", "custom_data", "PDE", "validating_data")
+    savepathtest = os.path.join(savepath, "validating_data")
     if not os.path.isdir(savepathtest):
         os.mkdir(savepathtest)
     #%%
@@ -35,16 +35,14 @@ def main(args):
             cluster, labels = loader.get_tree_cluster(
                 train=True,
                 max_trees=cfg.DATA_CREATION.AUGMENTATION.MAX_TREES,
-                max_dist=cfg.DATA_CREATION.AUGMENTATION.MAX_DIST,
                 translation_xy=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_XY,
                 translation_z=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_Z,
                 scale=cfg.DATA_CREATION.AUGMENTATION.SCALE,
                 xy_rotation=cfg.DATA_CREATION.AUGMENTATION.XY_ROTATION,
                 dist_between=cfg.DATA_CREATION.AUGMENTATION.MIN_DIST_BETWEEN,
+                do_normalize=cfg.DATA_CREATION.AUGMENTATION.DO_NORMALIZE
             )
-            array = np.hstack([np.vstack(cluster), np.vstack(labels)]).astype(
-                np.float16
-            )
+            array = np.hstack([np.vstack(cluster), np.vstack(labels)])
             if len(array) > cfg.DATA_CREATION.MIN_SIZE:
                 break
 
@@ -55,16 +53,14 @@ def main(args):
             cluster, labels = loader.get_tree_cluster(
                 train=False,
                 max_trees=cfg.DATA_CREATION.AUGMENTATION.MAX_TREES,
-                max_dist=cfg.DATA_CREATION.AUGMENTATION.MAX_DIST,
                 translation_xy=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_XY,
                 translation_z=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_Z,
                 scale=cfg.DATA_CREATION.AUGMENTATION.SCALE,
                 xy_rotation=cfg.DATA_CREATION.AUGMENTATION.XY_ROTATION,
                 dist_between=cfg.DATA_CREATION.AUGMENTATION.MIN_DIST_BETWEEN,
+                do_normalize=cfg.DATA_CREATION.AUGMENTATION.DO_NORMALIZE
             )
-            array = np.hstack([np.vstack(cluster), np.vstack(labels)]).astype(
-                np.float16
-            )
+            array = np.hstack([np.vstack(cluster), np.vstack(labels)])
             if len(array) > cfg.DATA_CREATION.MIN_SIZE:
                 break
         np.save(os.path.join(savepathtest, str(i) + ".npy"), array)

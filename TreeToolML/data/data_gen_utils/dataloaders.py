@@ -69,25 +69,25 @@ def load_cloud(dir):
     return point_cloud, labels, instances
 
 
-def downsample(points, features=None, labels=None, grid_size=0.6):
+def downsample(points, features=None, labels=None, grid_size=0.6, ml=False):
     out_points = []
     out_features = []
     out_labels = []
     if points.dtype != np.float32:
         points = points.astype(np.float32)
-    use_ml = False
+    use_ml = ml
     if use_ml:
         if (features is None) and (labels is None):
             out_points = subsample(points, sampleDl=grid_size)
         elif labels is None:
             out_points, out_features = subsample(
-                points, features=features, sampleDl=grid_size
+                points, features=features.reshape(-1,1).astype(np.float32), sampleDl=grid_size
             )
         elif features is None:
-            out_points, out_labels = subsample(points, classes=labels, sampleDl=grid_size)
+            out_points, out_labels = subsample(points, classes=labels.ravel().astype(np.int32), sampleDl=grid_size)
         else:
             out_points, out_features, out_labels = subsample(
-                points, features=features, classes=labels, sampleDl=grid_size
+                points, features=features.reshape(-1,1).astype(np.float32), classes=labels.ravel().astype(np.int32), sampleDl=grid_size
             )
 
         return out_points, out_features, out_labels
@@ -98,26 +98,22 @@ def downsample(points, features=None, labels=None, grid_size=0.6):
             labels = np.zeros(points.shape[0])
         
         classes, counts = np.unique(features, return_counts=True)
-        p_min = np.percentile(counts, 10)
-        p_max = np.percentile(counts, 90)
-        np.mean([i for i in counts if p_max > i > p_min])
-        idx = np.arange(points.shape[0])
-        np.random.shuffle(idx)
-        sub_idx = idx[:int(points.shape[0]*grid_size)]
-        out_points = points[sub_idx]
-        out_features = features[sub_idx]
-        out_labels = labels[sub_idx]
-        if False:
-            feature_label_zeros = np.vstack([features.flatten(), labels.flatten(), np.zeros_like(labels.flatten())]).T
-            
-            pcd.points = o3d.utility.Vector3dVector(points)
-            pcd.colors = o3d.utility.Vector3dVector(feature_label_zeros)
-            down = pcd.voxel_down_sample(grid_size)
-            out_points = np.asarray(down.points)
-            out_feature_label_zeros = np.asarray(down.colors)
-            out_features = np.around(out_feature_label_zeros[:,0].reshape(-1,1))
-            out_labels = np.around(out_feature_label_zeros[:,1])
-        
+        point_list = []
+        feature_list = []
+        label_list = []
+        for i,c in zip(classes,counts):
+            subpoints= points[i==features]
+            subfeatures= features[i==features]
+            sublabels= labels[i==features]
+            idx = np.arange(subpoints.shape[0])
+            np.random.shuffle(idx)
+            sub_idx = idx[:grid_size]
+            point_list.append(subpoints[sub_idx])
+            feature_list.append(subfeatures[sub_idx])
+            label_list.append(sublabels[sub_idx])
+        out_points = np.concatenate(point_list,0)
+        out_features = np.concatenate(feature_list,0).reshape(-1,1).astype(np.float32)
+        out_labels = np.concatenate(label_list,0).ravel().astype(np.int32)
         return out_points, out_features, out_labels
 
     
@@ -169,7 +165,7 @@ class data_loader:
                 self.trees = unique_trees
             else:
                 self.trees = tree_points
-            self.trees = [i for i in self.trees if len(i)>400]
+            self.trees = [i for i in self.trees if len(i)>4000]
             if self.train_split:
                 indexes = np.arange(len(self.trees))
                 self.train_trees, self.test_trees = train_test_split(indexes, test_size=0.2)

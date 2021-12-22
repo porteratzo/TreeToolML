@@ -212,8 +212,7 @@ if False:
             global_net = tf.tile(global_net, [1, num_point, 1, 1])
 
             ###
-            concat = tf.concat(axis=3, values=[global_net, net_1, net_2])
-
+            concat = tf.concat(axis=DeepPointwiseDirections)
             # CONV
             net = tf_util.conv2d(
                 concat,

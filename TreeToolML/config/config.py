@@ -1,5 +1,6 @@
-from yacs.config import CfgNode
+from fvcore.common.config import CfgNode
 from os.path import exists
+import os
 
 def get_cfg() -> CfgNode:
     """
@@ -28,6 +29,10 @@ def combine_cfgs(cfg_path, opt=[]):
 
     if path_overwrite_keys is not []:
         cfg_base.merge_from_list(path_overwrite_keys)
+
+    if cfg_base.TRAIN.MODEL_NAME == 'FILE':
+        cfg_base.TRAIN.MODEL_NAME = os.path.splitext(os.path.basename(cfg_path))[0]
+
 
     cfg_base.freeze()
 
