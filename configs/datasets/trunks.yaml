@@ -1,12 +1,12 @@
 _BASE_: ../RRFSegNet.yaml
 
+FILES:
+  DATA_WORK_FOLDER: trunks
+
 TRAIN:
   MODEL_NAME: FILE
-  PATH: datasets/custom_data/PDE/training_data
-  BATCH_SIZE: 8
+  BATCH_SIZE: 4
 
-VALIDATION:
-  PATH: datasets/custom_data/PDE/validating_data 
 
 DATA_CREATION:
   CENTER_METHOD: 1

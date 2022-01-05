@@ -7,6 +7,7 @@ import os
 import sys
 
 import torch
+from TreeToolML.utils.tictoc import bench_dict
 import TreeToolML.layers.Loss_torch as Loss_torch
 import TreeToolML.utils.py_util as py_util
 from torch.optim import Adam, lr_scheduler
@@ -24,6 +25,7 @@ from TreeToolML.utils.file_tracability import get_model_dir
 def main(args):
     cfg_path = args.cfg
     cfg = combine_cfgs(cfg_path, args.opts)
+    use_amp = args.amp != 0
 
     device = args.device
     device = "cuda" if device == "gpu" else device
@@ -47,10 +49,7 @@ def main(args):
     if device == "cuda":
         DeepPointwiseDirections.cuda()
 
-    if args.amp:
-        scaler = torch.cuda.amp.GradScaler()
-    else:
-        scaler = None
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     optomizer = Adam(
         DeepPointwiseDirections.parameters(),
@@ -62,22 +61,26 @@ def main(args):
     scheduler = lr_scheduler.ExponentialLR(
         optomizer, cfg.TRAIN.HYPER_PARAMETERS.DECAY_RATE
     )
+    savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
+
+    train_path = os.path.join(savepath, "training_data")
+    val_path = os.path.join(savepath, "validating_data")
     ###optimizer--Adam
 
     init_loss = 999.999
     init_val_loss = 999.999
-    for epoch in range(cfg.TRAIN.EPOCHS)[:10]:
+    for epoch in range(cfg.TRAIN.EPOCHS):
 
         ####training data generator
-        generator_training = tree_dataset(cfg.TRAIN.PATH, cfg.TRAIN.N_POINTS)
+        generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, normal_filter=True)
         train_loader = DataLoader(
-            generator_training, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=0
+            generator_training, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=2
         )
 
         ####validating data generator
-        generator_val = tree_dataset(cfg.VALIDATION.PATH, cfg.TRAIN.N_POINTS)
+        generator_val = tree_dataset(val_path, cfg.TRAIN.N_POINTS, normal_filter=True)
         test_loader = DataLoader(
-            generator_val, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=0
+            generator_val, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=2
         )
 
         #####trainging steps
@@ -89,6 +92,7 @@ def main(args):
             scaler,
             scheduler,
             args,
+            use_amp
         )
         for name, weight in DeepPointwiseDirections.named_parameters():
             writer.add_histogram(name, weight, epoch)
@@ -96,11 +100,12 @@ def main(args):
         writer.add_scalar("Loss/traning", temp_loss, epoch)
         torch.cuda.empty_cache()
         #####validating steps
-        val_loss = validation(DeepPointwiseDirections, test_loader, args)
+        val_loss = validation(DeepPointwiseDirections, test_loader, args, use_amp)
         writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], epoch)
         writer.add_scalar("Loss/validation", val_loss, epoch)
 
         if (temp_loss < init_loss) or (epoch % 10 == 0) or (val_loss < init_val_loss):
+            os.makedirs(os.path.join(result_dir,'checkpoints'), exist_ok=True)
             torch.save(
                 {
                     "epoch": epoch,
@@ -118,14 +123,12 @@ def main(args):
     writer.close()
 
 
-def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args):
+def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_amp):
     """ops: dict mapping from string to tf ops"""
     if next(model.parameters()).is_cuda:
         device = "cuda"
     else:
         device = "cpu"
-
-    datatype = torch.float16 if (device == "cuda") and args.amp else torch.float32
 
     num_batches_training = len(generator)
     print("-----------------training--------------------")
@@ -134,37 +137,37 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args):
     total_loss = 0
     acc_loss = 0
     model.train()
-    for i in tqdm(range(num_batches_training)[:10]):
-        ###
+    try:
+        for i,(batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(generator)):
+            bench_dict['epoch'].gstep()
+            if len(batch_train_data) != 4096:
+                continue
 
-        opt.zero_grad()
-        batch_train_data, batch_direction_label_data, _ = next(iter(generator))
+            opt.zero_grad()
+            bench_dict['epoch'].step('iter')
 
-        batch_train_data = batch_train_data.to(datatype).to(device)
-        batch_direction_label_data = batch_direction_label_data.to(datatype).to(device)
-        if (args.amp) and device == "cuda":
-            with torch.cuda.amp.autocast():
+            batch_train_data = batch_train_data.to(device)
+            batch_direction_label_data = batch_direction_label_data.to(device)
+            with torch.cuda.amp.autocast(enabled=use_amp):
                 y = model(batch_train_data)
                 total_loss = Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data
                 )
                 acc_loss += total_loss
+            bench_dict['epoch'].step('infer')
 
             scaler.scale(total_loss).backward()
             scaler.step(opt)
+            bench_dict['epoch'].step('backprop')
             scaler.update()
-        else:
-            y = model(batch_train_data)
-            total_loss = Loss_torch.slack_based_direction_loss(
-                y, batch_direction_label_data
-            )
-            acc_loss += total_loss
 
-            total_loss.backward()
-            opt.step()
+            bench_dict['epoch'].gstop()
 
-        if i % 20 == 0:
-            print("loss: %f" % (total_loss))
+            if i % 20 == 0:
+                print("loss: %f" % (total_loss))
+    except:
+        bench_dict.save()
+        quit()
 
     scheduler.step()
 
@@ -172,11 +175,9 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args):
     return acc_loss.cpu() / (num_batches_training)
 
 
-def validation(model, generator, args):
+def validation(model, generator, args, use_amp):
     if next(model.parameters()).is_cuda:
         device = "cuda"
-
-    datatype = torch.float16 if (device == "cuda") and args.amp else torch.float32
 
     num_batches_testing = len(generator)
     total_loss_esd = 0
@@ -184,18 +185,11 @@ def validation(model, generator, args):
     for _ in tqdm(range(num_batches_testing)[:10]):
         ###
         batch_test_data, batch_direction_label_data, _ = next(iter(generator))
-        batch_test_data = batch_test_data.to(datatype).to(device)
-        batch_direction_label_data = batch_direction_label_data.to(datatype).to(device)
+        batch_test_data = batch_test_data.to(device)
+        batch_direction_label_data = batch_direction_label_data.to(device)
         ###
         with torch.no_grad():
-            if args.amp:
-                with torch.cuda.amp.autocast():
-                    y = model(batch_test_data)
-                    loss_esd_ = Loss_torch.slack_based_direction_loss(
-                        y, batch_direction_label_data
-                    )
-                    total_loss_esd += loss_esd_
-            else:
+            with torch.cuda.amp.autocast(enabled=use_amp):
                 y = model(batch_test_data)
                 loss_esd_ = Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data

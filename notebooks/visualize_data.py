@@ -63,14 +63,28 @@ def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
     ).T
     return sphere
 #%%
-generator_training = tree_dataset(cfg.TRAIN.PATH, cfg.TRAIN.N_POINTS, return_centers=True)
+savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
+
+train_path = os.path.join(savepath, "training_data")
+generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, return_centers=True, normal_filter=True)
 for i in np.random.choice(100,10):
     cloud,_,labels, centers = generator_training[i]
     spheres = [makesphere(p,0.05) for p in centers]
-    open3dpaint([cloud] + spheres, pointsize=2, axis=1)
+    open3dpaint([cloud] + spheres, pointsize=2, axis=0.2)
+    #open3dpaint([cloud], pointsize=2, axis=0.1)
+    break
+#%%
+import open3d as o3d
 # %%
-generator_training = tree_dataset(cfg.TRAIN.PATH, cfg.TRAIN.N_POINTS, return_centers=True)
+generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, return_centers=True)
 for i in tqdm(np.random.choice(100,10)):
     cloud,_,labels, centers = generator_training[i]
 bench_dict.save()
+# %%
+
+# %%
+ixd = py_util.downsample(cloud, return_idx=True)
+# %%
+ixd
+
 # %%

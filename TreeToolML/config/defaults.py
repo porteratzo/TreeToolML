@@ -5,6 +5,10 @@ _C = CfgNode()
 
 _C._BASE_ = ""
 
+_C.FILES = CfgNode()
+_C.FILES.DATA_SET = "datasets/custom_data"
+_C.FILES.DATA_WORK_FOLDER = ""
+
 _C.VALIDATION = CfgNode()
 _C.VALIDATION.PATH = 'datasets/custom_data/PDE/validating_data'
 _C.VALIDATION.BATCH_SIZE = 12

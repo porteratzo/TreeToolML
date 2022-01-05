@@ -4,9 +4,25 @@ import math
 import os
 import sys
 import pclpy
-import open3d
+import open3d as o3d
+
 sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
 import TreeTool.seg_tree as seg_tree
+
+
+def downsample(point_cloud, leaf_size=0.005, return_idx=False):
+    if return_idx:
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(point_cloud)
+        rest = pcd.voxel_down_sample_and_trace(
+            voxel_size=leaf_size,
+            min_bound=np.array([-10, -10, -10]),
+            max_bound=np.array([10, 10, 10]),
+        )
+        indexes = rest[1][rest[1] != -1]
+        return indexes
+    else:
+        return seg_tree.voxelize(point_cloud, leaf_size)
 
 
 def combine_IOU(vis_dict):
@@ -199,6 +215,7 @@ def normal_filter(
     search_radius=0.05,
     verticality_threshold=0.3,
     curvature_threshold=0.3,
+    return_indexes=False,
 ):
     non_ground_normals = seg_tree.extract_normals(subject_cloud, search_radius)
 
@@ -218,12 +235,16 @@ def normal_filter(
 
     only_horizontal_points = non_nan_cloud[verticality_curvature_mask]
 
-    return only_horizontal_points
+    if return_indexes:
+        out_index = non_nan_mask
+        out_index[non_nan_mask] = verticality_curvature_mask
+        return out_index
+    else:
+        return only_horizontal_points
+
 
 def trunk_center(filtered_points):
-    half_height = (
-        np.max(filtered_points[:, 2]) - np.min(filtered_points[:, 2])
-    ) / 2
+    half_height = (np.max(filtered_points[:, 2]) - np.min(filtered_points[:, 2])) / 2
     filtered_points = filtered_points[filtered_points[:, 2] < half_height]
     indices, model = seg_tree.segment_normals(
         filtered_points,

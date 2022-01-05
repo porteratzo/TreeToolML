@@ -18,9 +18,7 @@ def main(args):
     )
 
     loader.load_all("datasets/custom_data/preprocessed")
-    savepath = os.path.join("datasets", "custom_data", cfg.TRAIN.MODEL_NAME)
-    if not os.path.isdir(savepath):
-        os.mkdir(savepath)
+    savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
 
     savepathtrain = os.path.join(savepath, "training_data")
     if not os.path.isdir(savepathtrain):
@@ -46,7 +44,7 @@ def main(args):
             if len(array) > cfg.DATA_CREATION.MIN_SIZE:
                 break
 
-        np.save(os.path.join(savepathtrain, str(i) + ".npy"), array)
+        np.save(os.path.join(savepathtrain, str(i) + ".npy"), array.astype(np.float32))
 
     for i in tqdm(range(cfg.DATA_CREATION.TEST_AMOUNT)):
         while True:
@@ -63,7 +61,7 @@ def main(args):
             array = np.hstack([np.vstack(cluster), np.vstack(labels)])
             if len(array) > cfg.DATA_CREATION.MIN_SIZE:
                 break
-        np.save(os.path.join(savepathtest, str(i) + ".npy"), array)
+        np.save(os.path.join(savepathtest, str(i) + ".npy"), array.astype(np.float32))
 
 
 if __name__ == "__main__":

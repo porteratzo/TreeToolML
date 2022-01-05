@@ -11,7 +11,6 @@ sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
 import argparse
 from collections import defaultdict
 
-import libraries.tree_tool as treeTool
 import numpy as np
 import pandas as pd
 import pclpy
@@ -67,6 +66,7 @@ for n, i in enumerate(alldata):
         plt.tight_layout(pad=3.0)
         plt.xticks(rotation=30, fontsize=18)
         plt.grid(axis="y")
+plt.savefig('fig1.jpg',bbox_inches='tight')
 # %%
 alldata = ["Location_RMSE", "Diameter_RMSE"]
 dificulties = ["easy", "medium", "hard"]
@@ -92,4 +92,5 @@ for n, i in enumerate(alldata):
         plt.tight_layout(pad=3.0)
         plt.grid(axis="y")
         plt.xticks(rotation=30, fontsize=18)
+plt.savefig('fig2.jpg',bbox_inches='tight')
 # %%

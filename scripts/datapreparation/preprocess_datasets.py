@@ -7,6 +7,7 @@ from TreeToolML.utils.default_parser import default_argument_parser
 from tqdm import tqdm
 import copy
 import os
+import numpy as np
 
 
 def main(args):
@@ -27,9 +28,9 @@ def main(args):
         i.labels[buffer_label != i.tree_label] = 0
         save_cloud(
             data_path + "/" + keys + ".ply",
-            i.point_cloud,
-            i.labels,
-            i.instances,
+            i.point_cloud.astype(np.float32),
+            i.labels.astype(np.int32),
+            i.instances.astype(np.float32),
         )
 
 if __name__ == "__main__":

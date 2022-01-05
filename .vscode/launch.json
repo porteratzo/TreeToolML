@@ -31,13 +31,13 @@
             "console": "integratedTerminal",
             "args": [
                 "--cfg",
-                "configs/RRFSegNet.yaml",
+                "configs/datasets/trunks.yaml",
                 "--amp",
                 "1",
                 "--device",
                 "gpu",
                 "TRAIN.BATCH_SIZE",
-                "4"
+                "8"
             ]
         },
         {

@@ -15,14 +15,16 @@ sys.path.append(os.path.join(ROOT_DIR, "utils"))
 import TreeToolML.utils.py_util as py_util
 from TreeToolML.utils.tictoc import bench_dict
 from torch.utils.data import Dataset
+from TreeToolML.Libraries.open3dvis import open3dpaint
 
 
 class tree_dataset(Dataset):
-    def __init__(self, trainingdata_path, num_points, return_centers=False):
+    def __init__(self, trainingdata_path, num_points, return_centers=False, normal_filter=False):
         self.files = py_util.get_data_set(trainingdata_path)
         self.path = trainingdata_path
         self.num_points = num_points
         self.return_centers = return_centers
+        self.normal_filter = normal_filter
 
     def __len__(self):
         return len(self.files)
@@ -47,11 +49,12 @@ class tree_dataset(Dataset):
             temp_object_label = np.expand_dims(object_label[temp_index[0]], axis=-1)
             ###center point
             bench_dict["loader"].step("compute 1")
+            down_points = py_util.downsample(temp_index_object_xyz)
             filtered_points = py_util.normal_filter(
-                temp_index_object_xyz, 0.05, 0.2, 0.1
+                down_points, 0.05, 0.2, 0.1
             )
             bench_dict["loader"].step("filter")
-            if len(filtered_points) < len(temp_index_object_xyz) * 0.1:
+            if len(filtered_points) < len(down_points) * 0.1:
                 temp_object_center_xyz = np.mean(temp_index_object_xyz, 0)
             else:
                 temp_object_center_xyz = py_util.trunk_center(filtered_points)
@@ -69,9 +72,22 @@ class tree_dataset(Dataset):
             bench_dict["loader"].step("compute other")
 
         temp_multi_objects_sample = np.vstack(temp_multi_objects_sample)
-        ###
-        temp_multi_objects_sample = py_util.shuffle_data(temp_multi_objects_sample)
-        temp_multi_objects_sample = temp_multi_objects_sample[: self.num_points, :]
+
+        if self.normal_filter:
+            d_indexes = py_util.downsample(temp_multi_objects_sample[:,:3], 0.01, return_idx=True)
+            _temp_multi_objects_sample = temp_multi_objects_sample[d_indexes]
+            indexes = py_util.normal_filter(_temp_multi_objects_sample[:,:3], return_indexes=True)
+            _temp_multi_objects_sample = _temp_multi_objects_sample[indexes]
+        
+            if len(_temp_multi_objects_sample) > self.num_points:
+                _temp_multi_objects_sample = py_util.shuffle_data(_temp_multi_objects_sample)
+                temp_multi_objects_sample = _temp_multi_objects_sample[: self.num_points, :]
+            else:
+                temp_multi_objects_sample = py_util.shuffle_data(temp_multi_objects_sample)
+                temp_multi_objects_sample = temp_multi_objects_sample[: self.num_points, :]
+        else:
+            temp_multi_objects_sample = py_util.shuffle_data(temp_multi_objects_sample)
+            temp_multi_objects_sample = temp_multi_objects_sample[: self.num_points, :]            
         ###
         training_xyz = temp_multi_objects_sample[:, :3]
         training_direction_label = temp_multi_objects_sample[:, 3:-1]
