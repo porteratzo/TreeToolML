@@ -2,8 +2,11 @@ import open3d as o3d
 import numpy as np
 from plyfile import PlyData, PlyElement
 from collections import defaultdict
+from TreeToolML.utils.tictoc import bench_dict
+import TreeToolML.utils.py_util as py_util
 try:
     from open3d.ml.contrib import subsample
+
     use_ml = True
 except ImportError:
     use_ml = False
@@ -81,42 +84,47 @@ def downsample(points, features=None, labels=None, grid_size=0.6, ml=False):
             out_points = subsample(points, sampleDl=grid_size)
         elif labels is None:
             out_points, out_features = subsample(
-                points, features=features.reshape(-1,1).astype(np.float32), sampleDl=grid_size
+                points,
+                features=features.reshape(-1, 1).astype(np.float32),
+                sampleDl=grid_size,
             )
         elif features is None:
-            out_points, out_labels = subsample(points, classes=labels.ravel().astype(np.int32), sampleDl=grid_size)
+            out_points, out_labels = subsample(
+                points, classes=labels.ravel().astype(np.int32), sampleDl=grid_size
+            )
         else:
             out_points, out_features, out_labels = subsample(
-                points, features=features.reshape(-1,1).astype(np.float32), classes=labels.ravel().astype(np.int32), sampleDl=grid_size
+                points,
+                features=features.reshape(-1, 1).astype(np.float32),
+                classes=labels.ravel().astype(np.int32),
+                sampleDl=grid_size,
             )
 
         return out_points, out_features, out_labels
     else:
-        if (features is None) :
+        if features is None:
             features = np.zeros(points.shape[0])
-        if (labels is None):
+        if labels is None:
             labels = np.zeros(points.shape[0])
-        
+
         classes, counts = np.unique(features, return_counts=True)
         point_list = []
         feature_list = []
         label_list = []
-        for i,c in zip(classes,counts):
-            subpoints= points[i==features]
-            subfeatures= features[i==features]
-            sublabels= labels[i==features]
+        for i, c in zip(classes, counts):
+            subpoints = points[np.ravel(i == features)]
+            subfeatures = features[i == features]
+            sublabels = labels[np.ravel(i == features)]
             idx = np.arange(subpoints.shape[0])
             np.random.shuffle(idx)
             sub_idx = idx[:grid_size]
             point_list.append(subpoints[sub_idx])
             feature_list.append(subfeatures[sub_idx])
             label_list.append(sublabels[sub_idx])
-        out_points = np.concatenate(point_list,0)
-        out_features = np.concatenate(feature_list,0).reshape(-1,1).astype(np.float32)
-        out_labels = np.concatenate(label_list,0).ravel().astype(np.int32)
+        out_points = np.concatenate(point_list, 0)
+        out_features = np.concatenate(feature_list, 0).reshape(-1, 1).astype(np.float32)
+        out_labels = np.concatenate(label_list, 0).ravel().astype(np.int32)
         return out_points, out_features, out_labels
-
-    
 
 
 class data_loader:
@@ -136,7 +144,7 @@ class data_loader:
 
     def load_data(self, dir):
         point_cloud, labels, instances = load_cloud(dir)
-        assert((len(point_cloud)>0) &(len(labels)>0) & (len(instances)>0))
+        assert (len(point_cloud) > 0) & (len(labels) > 0) & (len(instances) > 0)
         self.point_cloud = point_cloud
         self.labels = labels
         self.instances = instances
@@ -165,10 +173,13 @@ class data_loader:
                 self.trees = unique_trees
             else:
                 self.trees = tree_points
-            self.trees = [i for i in self.trees if len(i)>4000]
+            self.trees = [i for i in self.trees if len(i) > 4000]
             if self.train_split:
                 indexes = np.arange(len(self.trees))
-                self.train_trees, self.test_trees = train_test_split(indexes, test_size=0.2)
+                self.train_trees, rest_trees = train_test_split(indexes, test_size=0.2)
+                self.test_trees, self.val_trees = train_test_split(
+                    rest_trees, test_size=0.4
+                )
         return self.trees
 
     def get_non_trees(self, unique=True):
@@ -215,38 +226,63 @@ class data_loader:
         smaller_background = smaller_background - (center[0], center[1], height)
 
         return smaller_background
+    
+    def get_trees_centers(self):
 
-    def get_random_forground(self, train=False):
+        return_list = []
         if self.trees is not None:
             point_cloud = self.trees
         else:
             point_cloud = self.get_trees(unique=True)
 
+        for tree in point_cloud:
+            tree = tree.astype(np.float16)
+            center, filtered_points = py_util.get_tree_center(tree, return_filtered=True)
+            return_list.append([tree, center, filtered_points])
+
+        return return_list
+
+
+    def get_random_forground(
+        self,
+        split=None,
+    ):
+        bench_dict['forground'].gstep()
+        if self.trees is not None:
+            point_cloud = self.trees
+        else:
+            point_cloud = self.get_trees(unique=True)
+        bench_dict['forground'].step('get trees')
+
         if self.train_split:
-            if train:
+            if split == "train":
                 choice = np.random.choice(self.train_trees)
-            else:
+            elif split == "test":
                 choice = np.random.choice(self.test_trees)
+            elif split == "val":
+                choice = np.random.choice(self.val_trees)
             smaller_forground = point_cloud[choice]
-            while len(smaller_forground) < 60:
-                if train:
+            while len(smaller_forground) < 120:
+                if split:
                     choice = np.random.choice(self.train_trees)
                 else:
                     choice = np.random.choice(self.test_trees)
-                smaller_forground = point_cloud[choice]            
+                smaller_forground = point_cloud[choice]
         else:
             point_cloud_len = len(point_cloud)
             choice = np.random.choice(point_cloud_len)
             smaller_forground = point_cloud[choice]
-            while len(smaller_forground) < 60:
+            while len(smaller_forground) < 120:
                 choice = np.random.choice(point_cloud_len)
                 smaller_forground = point_cloud[choice]
-        height = np.min(smaller_forground[:, 2])
-        # height = np.percentile(smaller_forground[:,2],1)
-        center = np.mean(smaller_forground, axis=0)
+        bench_dict['forground'].step('split')
+        height = np.min(smaller_forground[:2048, 2])
+        center = np.mean(smaller_forground[:2048,:2], axis=0)
         smaller_forground = smaller_forground - (center[0], center[1], height)
+        bench_dict['forground'].step('minmean')
 
-        dists = np.linalg.norm(smaller_forground[:, :2], axis=1)
-        smaller_forground = smaller_forground[dists < 20]
+        _dists = (smaller_forground[:, 0] < 20) & (smaller_forground[:, 0] > -20) & (smaller_forground[:, 1] > -20) & (smaller_forground[:, 1] > -20)
+        smaller_forground = smaller_forground[_dists]
+        bench_dict['forground'].step('rest')
 
         return smaller_forground

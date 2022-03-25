@@ -161,5 +161,5 @@ for number in tqdm(range(2,3,1)):
 
 # %%
 cloud_match = [i['tree'] for i in treetool.finalstems]+[i for i in treetool.visualization_cylinders]
-open3dpaint(cloud_match+[PointCloud.xyz], pointsize=0.5)
+open3dpaint(cloud_match+[PointCloud.xyz], pointsize=2)
 # %%

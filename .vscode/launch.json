@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--cfg",
-                "configs/RRFSegNet.yaml",
+                "configs/datasets/trunks.yaml",
                 "--amp",
                 "1",
                 "--device",
@@ -29,6 +29,7 @@
             "request": "launch",
             "program": "scripts/PDE_train.py",
             "console": "integratedTerminal",
+            "justMyCode": true,
             "args": [
                 "--cfg",
                 "configs/datasets/trunks.yaml",
@@ -37,7 +38,9 @@
                 "--device",
                 "gpu",
                 "TRAIN.BATCH_SIZE",
-                "8"
+                "6",
+                "VALIDATION.BATCH_SIZE",
+                "6"
             ]
         },
         {

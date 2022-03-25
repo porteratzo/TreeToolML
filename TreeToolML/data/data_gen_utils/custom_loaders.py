@@ -1,3 +1,4 @@
+from TreeToolML.utils.py_util import outliers, normalize
 import open3d as o3d
 import numpy as np
 from plyfile import PlyData
@@ -6,9 +7,10 @@ import pandas as pd
 import os
 from TreeToolML.data.data_gen_utils.dataloaders import data_loader, downsample
 
-down_size = 12000
-grid_size = 0.08
 
+down_size = 30000
+grid_size = 0.005
+min_size = 2000
 
 class iqumulus_loader(data_loader):
     def __init__(self, onlyTrees=False, preprocess=False) -> None:
@@ -32,7 +34,6 @@ class iqumulus_loader(data_loader):
                 .astype(np.float32)
                 .reshape(-1, 1)
             )
-
             self.point_cloud = point_cloud
             self.instances = instance
             self.labels = label
@@ -42,7 +43,7 @@ class iqumulus_loader(data_loader):
                 classes, counts = np.unique(
                     self.instances[self.labels == self.tree_label], return_counts=True
                 )
-                tree_mean = np.mean(counts[counts > 500])
+                tree_mean = np.mean(counts[counts > min_size])
                 downsample_ratio = 1 / (tree_mean / down_size)
                 sub_points, sub_feat, sub_labels = downsample(
                     self.point_cloud,
@@ -95,6 +96,7 @@ class tropical_loader(data_loader):
                     grid_size=down_size,
                     ml=False
                 )
+                
                 self.labels = sub_labels
                 self.instances = sub_feat
                 self.point_cloud = sub_points
@@ -139,17 +141,18 @@ class open_loader(data_loader):
 
             self.data_loaded = True
             self.tree_label = label_dict["tree"]
+
             if self.preprocess:
-                sub_points, sub_feat, sub_labels = downsample(
-                    self.point_cloud,
-                    features=self.instances,
-                    labels=self.labels,
-                    grid_size=down_size,
-                    ml=False
-                )
-                self.labels = sub_labels
-                self.instances = sub_feat
-                self.point_cloud = sub_points
+                sub_point_cloud, sub_instance, sub_label = downsample(
+                        self.point_cloud,
+                        features=self.instances,
+                        labels=self.labels,
+                        grid_size=down_size,
+                        ml=False
+                    )
+                self.labels = sub_label
+                self.instances = sub_instance
+                self.point_cloud = sub_point_cloud
 
         if self.onlyTrees:
             if self.trees is None:
@@ -238,9 +241,12 @@ class paris_loader(data_loader):
                         point_cloud,
                         features=instance,
                         labels=label,
-                        grid_size=0.1,
-                        ml=True
+                        grid_size=down_size,
+                        ml=False
                     )
+                else:
+                    sub_point_cloud, sub_instance, sub_label = point_cloud, instance, label,                    
+
                 instances.append(sub_instance + smallest_instance)
                 smallest_instance = np.max(instances[-1])
                 labels.append(sub_label)

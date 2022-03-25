@@ -138,7 +138,9 @@ class benchmarker:
             series = self.series
             plt.figure(figsize=(18, 6))
             plt.title(os.path.basename(self.file))
-            for keys in series.keys():
+            colormap = plt.cm.nipy_spectral
+            color_cycle = [colormap(i) for i in np.linspace(0, 1, len(series))]
+            for n, keys in enumerate(series.keys()):
                 X = np.array(list(series[keys].keys()))
                 Y = np.array(list(series[keys].values()))
 
@@ -150,7 +152,7 @@ class benchmarker:
                 X = X[bool_idx]
                 Y = Y[bool_idx]
 
-                plt.plot(X, Y)
+                plt.plot(X, Y, color=color_cycle[n])
             plt.tight_layout()
             plt.legend(list(series.keys()))
             plt.savefig(self.file + ".png", dpi=200)
@@ -173,10 +175,12 @@ class g_benchmarker:
         self.time_string = today.strftime("%d:%m:%Y:%H:%M")
 
     def enable(self):
+        self.enable = True
         for bench in self.benchmarkers.values():
             bench.enable()
 
     def disable(self):
+        self.enable = False
         for bench in self.benchmarkers.values():
             bench.disable()
 

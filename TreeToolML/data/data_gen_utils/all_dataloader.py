@@ -4,6 +4,9 @@ from TreeToolML.IndividualTreeExtraction.utils.py_util import normalize
 from tqdm import tqdm
 import os
 import numpy as np
+from TreeToolML.utils.tictoc import bench_dict
+import TreeToolML.utils.py_util as py_util
+from TreeToolML.Libraries.open3dvis import open3dpaint
 
 
 def eulerAnglesToRotationMatrix(theta):
@@ -34,10 +37,11 @@ def eulerAnglesToRotationMatrix(theta):
 
 class all_data_loader:
     def __init__(
-        self, onlyTrees=False, preprocess=False, default=True, train_split=False
+        self, onlyTrees=False, preprocess=False, default=True, train_split=False, new_paris=False
     ) -> None:
         self.loader_list = {}
         self.tree_list = []
+        self.tree_list_names = ['open','paris','tropical']
         self.non_tree_list = []
         self.default = default
         if default:
@@ -56,7 +60,10 @@ class all_data_loader:
         # self.loader_list["iqumulus"] = self.iqumulus
         self.loader_list["tropical"] = self.tropical
         self.loader_list["open"] = self.open
-        self.loader_list["paris"] = self.paris
+        if new_paris:
+            self.loader_list["new_paris"] = self.paris
+        else:
+            self.loader_list["paris"] = self.paris
         self.loader_list["toronto"] = self.toronto
 
         # self.non_tree_list.append(self.iqumulus)
@@ -95,7 +102,7 @@ class all_data_loader:
     def get_tree_cluster(
         self,
         max_trees=4,
-        train=False,
+        split=None,
         translation_xy=4,
         translation_z=0.2,
         scale=0.2,
@@ -104,20 +111,28 @@ class all_data_loader:
         do_normalize=False,
         zero_floor = True,
     ):
+        bench_dict['get cluster'].gstep()
         number_of_trees = np.random.randint(1, max_trees + 1)
         scale = scale
         xyrotmin = -np.deg2rad(xy_rotation)
         xyrotmax = np.deg2rad(xy_rotation)
         cluster = []
         cluster_center = []
+        bench_dict['get cluster'].step('start')
         for i in range(number_of_trees):
-            tree = self.get_random_forground(train)
+            _tree = self.get_random_forground(split)
+            bench_dict['get cluster'].step('forground')
+
+            tree = py_util.outliers(_tree, 20, 5)
 
             if do_normalize:
                 tree = normalize(tree)
 
+            bench_dict['get cluster'].step('normalize')
+
             if zero_floor:
                 tree = tree - np.multiply(np.min(tree,0),[0,0,1])
+            bench_dict['get cluster'].step('multiply')
 
             # R = eulerAnglesToRotationMatrix([0,0,np.random.uniform(0,np.pi*2)])
             R = eulerAnglesToRotationMatrix(
@@ -127,6 +142,7 @@ class all_data_loader:
                     np.random.uniform(0, np.pi * 2),
                 ]
             )
+            bench_dict['get cluster'].step('rot')
             while True:
                 translation = np.array(
                     [
@@ -141,6 +157,7 @@ class all_data_loader:
                 dists = np.linalg.norm(cluster_center - translation, axis=1)
                 if np.min(dists) > dist_between:
                     break
+            bench_dict['get cluster'].step('tras')
 
             scaler = 1 + scale * (np.random.rand() - 0.5)
             rt = np.eye(4)
@@ -148,8 +165,59 @@ class all_data_loader:
             rt[:3, :3] = scaler * R
             htree = np.hstack([tree, np.ones_like(tree[:, 0:1])])
             new_tree = (rt @ htree.T).T[:,:3]
+            bench_dict['get cluster'].step('transform')
             cluster.append(new_tree)
             cluster_center.append(translation)
+            bench_dict['get cluster'].step('append')
 
         labels = [n * np.ones_like(i[:, :1]) for n, i in enumerate(cluster)]
+        bench_dict['get cluster'].gstop()
         return cluster, labels
+
+    def get_tree_centers(self, temp_xyz, labels, return_cloud=False, return_filtered=False):
+        bench_dict["loader"].gstep()
+        downsample_idx = py_util.downsample(temp_xyz, 0.01, True)
+        bench_dict["loader"].step("start_downsample")
+
+        filterd_temp_xyz = temp_xyz[downsample_idx]
+        filterd_object_label = labels[downsample_idx]
+
+        bench_dict["loader"].step("start_normal")
+        
+        unique_object_label = np.unique(filterd_object_label)
+        temp_multi_objects_centers = []
+        bench_dict["loader"].step("start")
+        for j in range(np.size(unique_object_label)):
+            ###get single object
+            temp_index = np.where(filterd_object_label == unique_object_label[j])
+            temp_index_object_xyz = filterd_temp_xyz[temp_index[0], :]
+            bench_dict["loader"].step("compute 1")
+            down_points = filterd_temp_xyz[filterd_object_label.flatten() == unique_object_label[j]]
+            bench_dict["loader"].step("compute down1")
+            filter_idx = py_util.normal_filter(
+                down_points, 0.1, 0.4, 0.1, return_indexes=True
+            )
+            filtered_points = down_points[filter_idx]
+            bench_dict["loader"].step("filter")
+            if len(filtered_points) < len(down_points) * 0.1:
+                temp_object_center_xyz = np.mean(temp_index_object_xyz, 0)
+            else:
+                temp_object_center_xyz = py_util.trunk_center(filtered_points)
+                if len(temp_object_center_xyz) == 0:
+                    temp_object_center_xyz = np.mean(filtered_points, 0)
+            bench_dict["loader"].step("trunk")
+            temp_multi_objects_centers.append([temp_object_center_xyz,unique_object_label[j]])
+            bench_dict["loader"].step("compute other")
+        bench_dict["loader"].gstop()
+
+        if return_cloud:
+            if return_filtered:
+                indexes = py_util.normal_filter(filterd_temp_xyz, return_indexes=True, search_radius=0.1, verticality_threshold=0.4, curvature_threshold=0.1)
+                out_filterd_temp_xyz = filterd_temp_xyz[indexes]
+                out_filterd_object_label = filterd_object_label[indexes]
+            else:
+                out_filterd_temp_xyz = filterd_temp_xyz
+                out_filterd_object_label = filterd_object_label
+            return temp_multi_objects_centers, out_filterd_temp_xyz, out_filterd_object_label
+        
+        return temp_multi_objects_centers

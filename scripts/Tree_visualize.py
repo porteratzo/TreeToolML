@@ -74,7 +74,7 @@ def individual_tree_extraction(args):
     if device == "cuda":
         model.cuda()
 
-    generator_val = tree_dataset(cfg.TRAIN.PATH, cfg.TRAIN.N_POINTS)
+    generator_val = tree_dataset(cfg.TRAIN.PATH, cfg.TRAIN.N_POINTS, return_centers=True)
     test_loader = DataLoader(generator_val, 1, shuffle=True, num_workers=0)
     ####
     file_list = os.listdir(cfg.VALIDATION.PATH)
@@ -83,46 +83,48 @@ def individual_tree_extraction(args):
         filename, _ = os.path.splitext(file_list[i])
         print("Separating " + filename + "...")
         #### data[x, y, z] original coordinates
-        testdata, directions, labels = next(iter(test_loader))
-        testdata, directions, labels = (
+        testdata, directions, labels, object_centers = next(iter(test_loader))
+        testdata, directions, labels, object_centers = (
             testdata.squeeze().numpy(),
             directions.squeeze().numpy(),
             labels.squeeze().numpy(),
+            [i.squeeze().numpy() for i in object_centers],
         )
         ind_trees = [testdata[labels == i] for i in np.unique(labels)]
-        object_centers = [py_util.compute_object_center(i) for i in ind_trees]
+        #object_centers = [py_util.compute_object_center(i) for i in ind_trees]
         ####normalized coordinates
         nor_testdata = torch.tensor(testdata, device="cuda").squeeze()
         ####Pointwise direction prediction
         xyz_direction = prediction(model, nor_testdata, args)
         ####tree center detection
-        if False:
+        if True:
             xyz = xyz_direction[:, :3]
             angles = np.rad2deg(np.arctan2(directions[:, 1], directions[:, 0]))
             ps = o3d_pointSetClass(xyz, angles)
             open3dpaint(
-                [ps] + [makesphere(i, 0.1) for i in object_centers],
+                [ps] + [makesphere(i, 0.05) for i in object_centers],
                 pointsize=5,
-                axis=True,
+                axis=0.1,
             )
 
             angles = np.rad2deg(np.arctan2(directions[:, 2], directions[:, 0]))
             ps = o3d_pointSetClass(xyz, angles)
             open3dpaint(
-                [ps] + [makesphere(i, 0.1) for i in object_centers],
+                [ps] + [makesphere(i, 0.05) for i in object_centers],
                 pointsize=5,
-                axis=True,
+                axis=0.1,
             )
 
             angles = np.rad2deg(np.arctan2(directions[:, 2], directions[:, 1]))
             ps = o3d_pointSetClass(xyz, angles)
             open3dpaint(
-                [ps] + [makesphere(i, 0.1) for i in object_centers],
+                [ps] + [makesphere(i, 0.05) for i in object_centers],
                 pointsize=5,
-                axis=True,
+                axis=0.1,
             )
+            continue
 
-            object_center_list = center_detection(xyz_direction, voxel_size, ARe, Nd)
+            object_center_list, _ = center_detection(xyz_direction, voxel_size, ARe, Nd)
             loss_esd_ = Loss_torch.slack_based_direction_loss(
                 torch.tensor(xyz_direction.T[np.newaxis, 3:6, :].astype(np.float32)),
                 torch.tensor(directions[np.newaxis, :].astype(np.float32)),

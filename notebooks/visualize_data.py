@@ -22,6 +22,7 @@ import os
 from argparse import Namespace
 from TreeToolML.utils.tictoc import bench_dict
 
+
 #cfg_path = os.path.join('configs','datasets','original')
 cfg_path = os.path.join('configs','datasets','trunks.yaml')
 cfg = combine_cfgs(cfg_path, [])
@@ -72,6 +73,16 @@ for i in np.random.choice(100,10):
     spheres = [makesphere(p,0.05) for p in centers]
     open3dpaint([cloud] + spheres, pointsize=2, axis=0.2)
     #open3dpaint([cloud], pointsize=2, axis=0.1)
+    break
+#%%
+#generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, return_centers=True, normal_filter=False)
+for i in np.random.choice(100,10):
+    #cloud,_,labels, centers = generator_training[i]
+    spheres = [makesphere(p,0.05) for p in centers]
+    open3dpaint([cloud] + spheres, pointsize=3, axis=0.2)
+    #open3dpaint([cloud], pointsize=2, axis=0.1)
+    fcloud = py_util.normal_filter(cloud, 0.1, 0.6, 0.06)
+    open3dpaint([fcloud] + spheres, pointsize=3, axis=0.2)
     break
 #%%
 import open3d as o3d

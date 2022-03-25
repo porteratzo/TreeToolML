@@ -5,6 +5,7 @@ import os
 import sys
 import pclpy
 import open3d as o3d
+from TreeToolML.utils.tictoc import bench_dict
 
 sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
 import TreeTool.seg_tree as seg_tree
@@ -14,15 +15,19 @@ def downsample(point_cloud, leaf_size=0.005, return_idx=False):
     if return_idx:
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(point_cloud)
-        rest = pcd.voxel_down_sample_and_trace(
+        _, rest, _ = pcd.voxel_down_sample_and_trace(
             voxel_size=leaf_size,
             min_bound=np.array([-10, -10, -10]),
             max_bound=np.array([10, 10, 10]),
         )
-        indexes = rest[1][rest[1] != -1]
-        return indexes
+        return rest[rest != -1]
     else:
         return seg_tree.voxelize(point_cloud, leaf_size)
+
+
+def outliers(points, min_n=6, radius=0.4, organized=True):
+    _points = seg_tree.radius_outlier_removal(points, min_n, radius, organized)
+    return _points[~np.all(np.isnan(_points), axis=1)]
 
 
 def combine_IOU(vis_dict):
@@ -62,7 +67,7 @@ def data_preprocess(temp_point_set):
 
 def load_data(path):
     try:
-        return np.load(path)
+        return np.load(path, allow_pickle=True)
     except:
         return np.loadtxt(path)
 
@@ -87,6 +92,12 @@ def get_train_val_set(trainingdata_path, val_rate=0.20):
             train_set.append(all_train_set[j])
     return train_set, val_set
 
+def normalize_2(sample_xyz):
+    centerd_tree = sample_xyz - np.multiply(np.min(sample_xyz, 0), [0, 0, 1])
+    centerd_tree = centerd_tree - np.multiply(np.mean(centerd_tree, axis=0), [1, 1, 0])
+    # normalize into unit sphere
+    centerd_tree /= np.max(np.linalg.norm(centerd_tree, axis=1))
+    return centerd_tree
 
 def normalize(sample_xyz):
     min_xyz = np.min(sample_xyz, axis=0)
@@ -217,13 +228,15 @@ def normal_filter(
     curvature_threshold=0.3,
     return_indexes=False,
 ):
+    bench_dict["normals"].gstep()
     non_ground_normals = seg_tree.extract_normals(subject_cloud, search_radius)
-
+    bench_dict["normals"].step("extract")
     # remove Nan points
     non_nan_mask = np.bitwise_not(np.isnan(non_ground_normals.normals[:, 0]))
     non_nan_cloud = subject_cloud[non_nan_mask]
     non_nan_normals = non_ground_normals.normals[non_nan_mask]
     non_nan_curvature = non_ground_normals.curvature[non_nan_mask]
+    bench_dict["normals"].step("nan")
 
     # get mask by filtering verticality and curvature
     verticality = np.dot(non_nan_normals, [[0], [0], [1]])
@@ -234,6 +247,8 @@ def normal_filter(
     verticality_curvature_mask = verticality_mask.ravel() & curvature_mask.ravel()
 
     only_horizontal_points = non_nan_cloud[verticality_curvature_mask]
+    bench_dict["normals"].step("filter")
+    bench_dict["normals"].gstop()
 
     if return_indexes:
         out_index = non_nan_mask
@@ -243,20 +258,89 @@ def normal_filter(
         return only_horizontal_points
 
 
-def trunk_center(filtered_points):
-    half_height = (np.max(filtered_points[:, 2]) - np.min(filtered_points[:, 2])) / 2
-    filtered_points = filtered_points[filtered_points[:, 2] < half_height]
+def seg_normals(
+    filtered_points,
+    search_radius=0.05,
+    normalweight=0.01,
+    miter=1000,
+    distance=0.01,
+    rlim=[0, 0.2],
+):
     indices, model = seg_tree.segment_normals(
         filtered_points,
-        search_radius=0.05,
+        search_radius=search_radius,
         model=pclpy.pcl.sample_consensus.SACMODEL_CYLINDER,
         method=pclpy.pcl.sample_consensus.SAC_RANSAC,
-        normalweight=0.01,
-        miter=1000,
-        distance=0.01,
-        rlim=[0, 0.2],
+        normalweight=normalweight,
+        miter=miter,
+        distance=distance,
+        rlim=rlim,
     )
+    return indices, model
+
+
+def trunk_center(filtered_points):
+    # half_height = (np.max(filtered_points[:, 2]) - np.min(filtered_points[:, 2])) / 2
+    # filtered_points = filtered_points[filtered_points[:, 2] < half_height]
+    indices, _ = seg_normals(filtered_points)
     temp_object_center_xyz = np.mean(filtered_points[indices], 0)
     if len(filtered_points[indices]) < len(filtered_points) * 0.1:
         return []
+    return temp_object_center_xyz
+
+
+def group_trees(
+    filtered_points, tolerance=0.1, min_cluster_size=20, max_cluster_size=25000
+):
+    cluster_list = seg_tree.euclidean_cluster_extract(
+        filtered_points,
+        tolerance=tolerance,
+        min_cluster_size=min_cluster_size,
+        max_cluster_size=max_cluster_size,
+    )
+    return cluster_list
+
+
+def get_tree_center(
+    temp_xyz,
+    downsample_leaf=0.01,
+    search_radius=0.1,
+    verticality_threshold=0.4,
+    curvature_threshold=0.1,
+    return_filtered=False,
+    non_if_no_seg_center=False,
+):
+    bench_dict["get_centers"].gstep()
+    down_points = downsample(temp_xyz, downsample_leaf, False)
+    bench_dict["get_centers"].step("start_downsample")
+    no_outlier_tree = outliers(down_points, 100, 10)
+    bench_dict["get_centers"].step("outliers")
+    filtered_points = normal_filter(
+        no_outlier_tree,
+        search_radius,
+        verticality_threshold,
+        curvature_threshold,
+        return_indexes=False,
+    )
+    bench_dict["get_centers"].step("filter")
+    if len(filtered_points) > len(down_points) * 0.1:
+        temp_object_center_xyz = trunk_center(filtered_points)
+        if len(temp_object_center_xyz) == 0:
+            if non_if_no_seg_center:
+                temp_object_center_xyz = None
+            else:
+                temp_object_center_xyz = np.mean(filtered_points, 0)
+    else:
+        if non_if_no_seg_center:
+            temp_object_center_xyz = None
+        else:
+            temp_object_center_xyz = np.mean(filtered_points, 0)
+    bench_dict["get_centers"].step("trunk")
+    bench_dict["get_centers"].gstop()
+
+    if return_filtered:
+        return (
+            temp_object_center_xyz,
+            filtered_points,
+        )
     return temp_object_center_xyz

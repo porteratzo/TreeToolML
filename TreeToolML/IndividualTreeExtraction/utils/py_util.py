@@ -7,6 +7,8 @@ import numpy as np
 import random
 import math
 import os
+from TreeToolML.utils.tictoc import bench_dict
+from scipy.spatial import distance_matrix
 
 def load_data(path):
     try:
@@ -34,15 +36,17 @@ def get_train_val_set(trainingdata_path, val_rate=0.20):
             train_set.append(all_train_set[j])
     return train_set, val_set
 
-
 def normalize(sample_xyz):
     min_xyz = np.min(sample_xyz, axis=0)
     max_xyz = np.max(sample_xyz, axis=0)
+    bench_dict['get cluster'].step('norm1')
     deta_central_xyz = (max_xyz - min_xyz)/2.0
     central_xyz = deta_central_xyz + min_xyz
     n_data = sample_xyz - central_xyz
+    bench_dict['get cluster'].step('norm2')
     # normalize into unit sphere
     n_data /= np.max(np.linalg.norm(n_data, axis=1))
+    bench_dict['get cluster'].step('norm3')
     return n_data
 
 def compute_object_center(sample_xyz):

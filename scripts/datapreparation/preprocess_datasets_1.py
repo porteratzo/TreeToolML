@@ -8,6 +8,9 @@ from tqdm import tqdm
 import copy
 import os
 import numpy as np
+######################
+#Take raw data from datasets and give them a standard format
+######################
 
 
 def main(args):
