@@ -10,17 +10,20 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+            //"justMyCode": false,
             "args": [
                 "--cfg",
                 "configs/datasets/trunks.yaml",
                 "--amp",
+                "1",
+                "--resume",
                 "1",
                 "--device",
                 "gpu",
                 "TRAIN.BATCH_SIZE",
                 "4",
                 "VALIDATION.BATCH_SIZE",
-                "16"
+                "16",
             ]
         },
         {

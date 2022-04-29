@@ -5,7 +5,7 @@ from plyfile import PlyData
 import glob
 import pandas as pd
 import os
-from TreeToolML.data.data_gen_utils.dataloaders import data_loader, downsample
+from TreeToolML.data.data_gen_utils.dataloaders import data_loader, downsample, data_loader_fullcloud
 
 
 down_size = 30000

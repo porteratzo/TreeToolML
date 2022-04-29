@@ -31,4 +31,7 @@ space-separated "PATH.KEY VALUE" pairs.
     parser.add_argument(
         "--amp", type=int, default=0, help="number of gpus *per machine*"
     )
+    parser.add_argument(
+        "--resume", type=int, default=0, help="resume from checkpoint"
+    )
     return parser

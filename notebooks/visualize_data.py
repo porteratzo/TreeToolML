@@ -14,7 +14,7 @@ from TreeToolML.Libraries.open3dvis import o3d_pointSetClass, open3dpaint
 from TreeToolML.config.config import combine_cfgs
 from TreeToolML.utils.default_parser import default_argument_parser
 from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
-from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset
+from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset, tree_dataset_cloud
 import numpy as np
 import TreeToolML.utils.py_util as py_util
 from tqdm import tqdm
@@ -67,7 +67,7 @@ def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
 savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
 
 train_path = os.path.join(savepath, "training_data")
-generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, return_centers=True, normal_filter=True)
+generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, return_centers=True, normal_filter=True)
 for i in np.random.choice(100,10):
     cloud,_,labels, centers = generator_training[i]
     spheres = [makesphere(p,0.05) for p in centers]

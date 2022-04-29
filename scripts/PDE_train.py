@@ -1,5 +1,6 @@
 from logging import exception
 import os
+from pickletools import optimize
 import sys
 
 sys.path.append(".")
@@ -17,11 +18,13 @@ from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 from tqdm import tqdm
 from TreeToolML.config.config import combine_cfgs
-from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset
+from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset, tree_dataset_cloud
 from TreeToolML.model.build_model import build_model
 from TreeToolML.utils.default_parser import default_argument_parser
 from TreeToolML.utils.file_tracability import get_model_dir
 import traceback
+from TreeToolML.Libraries.open3dvis import open3dpaint_sphere
+from TreeToolML.utils.file_tracability import get_model_dir, get_checkpoint_file, find_model_dir
 
 class start_bench:
         def __init__(self, dataloader) -> None:
@@ -44,6 +47,7 @@ class start_bench:
                         result = next(self.iter_obj)
                         break
                     except:
+                        raise
                         self.n += 1
                         print('error')
                 return result
@@ -56,25 +60,26 @@ def main(args):
     cfg = combine_cfgs(cfg_path, args.opts)
     use_amp = args.amp != 0
 
+
+    model_name = cfg.TRAIN.MODEL_NAME
+    if not args.resume:
+        model_name = get_model_dir(model_name)
+        result_dir = os.path.join("results", model_name, "trained_model")
+        os.makedirs(result_dir, exist_ok=True)
+        result_config_path = os.path.join("results", model_name, "full_cfg.yaml")
+        cfg_str = cfg.dump()
+        with open(result_config_path, "w") as f: 
+            f.write(cfg_str)
+
+    DeepPointwiseDirections = build_model(cfg)
+
+
     device = args.device
     device = "cuda" if device == "gpu" else device
     device = device if torch.cuda.is_available() else "cpu"
 
     if device == "cuda":
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_number)
-
-    model_name = cfg.TRAIN.MODEL_NAME
-    model_name = get_model_dir(model_name)
-    result_dir = os.path.join("results", model_name, "trained_model")
-    os.makedirs(result_dir, exist_ok=True)
-    writer = SummaryWriter(result_dir)
-    DeepPointwiseDirections = build_model(cfg)
-
-    result_config_path = os.path.join("results", model_name, "full_cfg.yaml")
-    cfg_str = cfg.dump()
-    with open(result_config_path, "w") as f: 
-        f.write(cfg_str)
-
     if device == "cuda":
         DeepPointwiseDirections.cuda()
 
@@ -94,25 +99,42 @@ def main(args):
 
     train_path = os.path.join(savepath, "training_data")
     val_path = os.path.join(savepath, "validating_data")
-    generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, normal_filter=True)
-    generator_val = tree_dataset(val_path, cfg.TRAIN.N_POINTS, normal_filter=True)
+    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=True, return_centers=False)
+    generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, normal_filter=True)
     ###optimizer--Adam
 
     init_loss = 999.999
     init_val_loss = 999.999
+    start_epoch = 0
+
+    if args.resume:
+        model_name = cfg.TRAIN.MODEL_NAME
+        result_dir = os.path.join("results", model_name)
+        result_dir = find_model_dir(result_dir)
+        checkpoint_file = os.path.join(result_dir,'trained_model','checkpoints')
+        checkpoint_path = get_checkpoint_file(checkpoint_file)
+        checkpoint = torch.load(checkpoint_path)
+        DeepPointwiseDirections.load_state_dict(checkpoint['model_state_dict']) if checkpoint.get('model_state_dict',False) else None
+        start_epoch = checkpoint['epoch'] if checkpoint.get('epoch',False) else None
+        optomizer.load_state_dict(checkpoint['optimizer_state_dict']) if checkpoint.get('optimizer_state_dict',False) else None
+        scaler.load_state_dict(checkpoint['scaler']) if checkpoint.get('scaler',False) else None
+        scheduler.load_state_dict(checkpoint['scheduler']) if checkpoint.get('scheduler',False) else None
+        init_loss = checkpoint['loss'] if checkpoint.get('loss',False) else None
+        init_val_loss = checkpoint['val_loss'] if checkpoint.get('val_loss',False) else None
+    writer = SummaryWriter(result_dir)
 
     try:
-        for epoch in range(cfg.TRAIN.EPOCHS):
+        for epoch in range(start_epoch, cfg.TRAIN.EPOCHS):
 
             ####training data generator
-            
+            generator_training[0]
             train_loader = DataLoader(
-                generator_training, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=6
+                generator_training, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=1
             )
 
             ####validating data generator
             test_loader = DataLoader(
-                generator_val, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=6
+                generator_val, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=1
             )
 
             #####trainging steps
@@ -143,8 +165,10 @@ def main(args):
                         "epoch": epoch,
                         "model_state_dict": DeepPointwiseDirections.state_dict(),
                         "optimizer_state_dict": optomizer.state_dict(),
+                        'scaler':scaler,
                         "loss": temp_loss,
                         "val_loss": val_loss,
+                        'scheduler': scheduler,
                     },
                     os.path.join(result_dir,'checkpoints', f"model-{epoch:03d}-train_loss:{temp_loss:.6f}-val_loss:{val_loss:.6f}.pt",)
                     
@@ -161,6 +185,7 @@ def main(args):
         writer.close()
         quit()
     except Exception:
+        raise
         print(traceback.format_exc())
         writer.close()
         quit()
@@ -180,7 +205,7 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
     total_loss = 0
     acc_loss = 0
     model.train()
-    for i, (batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(start_bench(generator))):
+    for i, (batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(start_bench(generator), )):
     #for i,(batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(generator)):
         opt.zero_grad()
         bench_dict['epoch'].step('iter')

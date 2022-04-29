@@ -73,9 +73,9 @@ class tree_dataset(Dataset):
         for j in range(np.size(unique_object_label)):
             ###get single object
             temp_index = np.where(filterd_object_label == unique_object_label[j])
-            center_index = np.where(temp_centers[:, 1] == unique_object_label[j])
+            center_index = np.where(temp_centers[:, 3] == unique_object_label[j])
             temp_index_object_xyz = filterd_temp_xyz[temp_index[0], :]
-            temp_object_center_xyz = temp_centers[:, 0][center_index[0]][0]
+            temp_object_center_xyz = temp_centers[:, :3][center_index[0]][0]
             temp_object_label = np.expand_dims(
                 filterd_object_label[temp_index[0]], axis=-1
             )
@@ -118,6 +118,59 @@ class tree_dataset(Dataset):
         else:
             temp_multi_objects_sample = py_util.shuffle_data(temp_multi_objects_sample)
             temp_multi_objects_sample = temp_multi_objects_sample[: self.num_points, :]
+        ###
+        training_xyz = temp_multi_objects_sample[:, :3]
+        training_direction_label = temp_multi_objects_sample[:, 3:-1]
+        training_object_label = temp_multi_objects_sample[:, -1]
+        bench_dict["loader"].step("shuffle")
+        bench_dict["loader"].gstop()
+
+        if self.return_centers:
+            return (
+                training_xyz,
+                training_direction_label,
+                training_object_label,
+                temp_multi_objects_centers,
+            )
+        else:
+            return training_xyz, training_direction_label, training_object_label
+
+class tree_dataset_cloud(tree_dataset):
+    def get_tree(self, index):
+        bench_dict["loader"].gstep()
+        data = py_util.load_data(os.path.join(self.path, self.files[index]))
+        temp_point_set = data["cloud"]
+        temp_centers = data["centers"]
+        points = temp_point_set[:, :3]
+        object_label = temp_point_set[:, 3]
+        unique_object_label = np.unique(object_label)
+
+        temp_multi_objects_sample = []
+        temp_multi_objects_centers = []
+        bench_dict["loader"].step("start")
+        for j in range(np.size(unique_object_label)):
+            ###get single object
+            temp_index = np.where(object_label == unique_object_label[j])
+            center_index = np.where(temp_centers[:, 3] == unique_object_label[j])
+            temp_index_object_xyz = points[temp_index[0], :]
+            temp_object_center_xyz = temp_centers[:, :3][center_index[0]][0]
+            temp_object_label = np.expand_dims(
+                object_label[temp_index[0]], axis=-1
+            )
+            bench_dict["loader"].step("compute 1")
+            temp_direction_label = temp_object_center_xyz - temp_index_object_xyz
+            temp_xyz_direction_label_concat = np.concatenate(
+                [temp_index_object_xyz, temp_direction_label, temp_object_label],
+                axis=-1,
+            )
+            temp_multi_objects_sample.append(temp_xyz_direction_label_concat)
+            temp_multi_objects_centers.append(temp_object_center_xyz)
+            bench_dict["loader"].step("compute other")
+
+        temp_multi_objects_sample = np.vstack(temp_multi_objects_sample)
+
+        temp_multi_objects_sample = py_util.shuffle_data(temp_multi_objects_sample)
+        temp_multi_objects_sample = temp_multi_objects_sample[: self.num_points, :]
         ###
         training_xyz = temp_multi_objects_sample[:, :3]
         training_direction_label = temp_multi_objects_sample[:, 3:-1]

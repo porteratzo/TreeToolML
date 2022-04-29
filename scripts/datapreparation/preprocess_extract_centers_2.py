@@ -1,3 +1,4 @@
+from collections import defaultdict
 import enum
 import sys
 import os
@@ -14,6 +15,7 @@ from TreeToolML.utils.default_parser import default_argument_parser
 from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
 import numpy as np
 from tqdm import tqdm
+import pickle
 
 from TreeToolML.utils.tictoc import bench_dict
 
@@ -34,7 +36,7 @@ def main(args):
         onlyTrees=False, preprocess=False, default=False, train_split=True
     )
 
-    all_datasets = []
+    all_datasets = defaultdict(list)
 
     loader.load_all("datasets/custom_data/preprocessed")
     for dataset_loader in tqdm(loader.tree_list):
@@ -62,8 +64,8 @@ def main(args):
             for single_tree in tree_groups:
                 index, model = py_util.seg_normals(
                     single_tree,
-                    0.2,
-                    0.002,
+                    0.04,
+                    0.000001,
                     distance=0.01,
                     rlim=[0, 0.05],
                 )
@@ -74,7 +76,7 @@ def main(args):
                         > 0.5
                     ):
                         model = np.array(model)
-                        Z = 0.5
+                        Z = 0.2
                         Y = model[1] + model[4] * (Z - model[2]) / model[5]
                         X = model[0] + model[3] * (Z - model[2]) / model[5]
                         model[0:3] = np.array([X, Y, Z])
@@ -85,7 +87,7 @@ def main(args):
                         best_cylinder = utils.makecylinder(
                             model=model, height=1, density=30
                         )
-            if max_points / len(filtered_points) > 0.2:
+            if max_points / len(filtered_points) > 0.4:
                 print(max_points / len(filtered_points))
                 saved_trees.append(centered_tree)
                 saved_centers.append(best_model[:3])
@@ -95,40 +97,63 @@ def main(args):
             else:
                 badd_trees.append(centered_tree)
         print("orig tree number", len(saved_trees))
-        sidexsidepaint(saved_trees, visualization_cylinders, [utils.makesphere(i,0.1) for i in saved_centers],pointsize=2, axis=1)
-        sidexsidepaint(saved_filtered, visualization_cylinders, [utils.makesphere(i,0.1) for i in saved_centers],pointsize=2, axis=1)
-        sidexsidepaint(badd_trees,pointsize=2, axis=1)
+        #sidexsidepaint(saved_trees, visualization_cylinders, [utils.makesphere(i,0.1) for i in saved_centers],pointsize=2, axis=1)
+        #sidexsidepaint(saved_filtered, visualization_cylinders, [utils.makesphere(i,0.1) for i in saved_centers],pointsize=2, axis=1)
+        #sidexsidepaint(badd_trees,pointsize=2, axis=1)
 
-        all_datasets.append(
-            [
-                saved_trees,
-                saved_centers,
-                saved_filtered,
-                visualization_cylinders,
-            ]
-        )
+        all_datasets["cloud"].extend(saved_trees)
+        all_datasets["centers"].extend(saved_centers)
+        all_datasets["filtered"].extend(saved_filtered)
+        all_datasets["cylinders"].extend(visualization_cylinders)
+        all_datasets["models"].extend(saved_models)
 
-    point_cloud = loader.paris.point_cloud[loader.paris.labels == 0]
-    instances = loader.paris.instances[loader.paris.labels == 0]
-    labels = np.zeros(len(point_cloud))
-    tree_instances = np.unique(loader.paris.instances[loader.paris.labels == 1])
-    new_tree_instances = np.hstack(
-        [np.ones(len(tree)) * inst for tree, inst in zip(saved_trees, tree_instances)]
+    point_cloud = np.vstack(all_datasets["cloud"])
+    instances = np.hstack(
+        [np.ones(len(tree)) * n for n, tree in enumerate(all_datasets["cloud"])]
     )
-    tree_point_cloud = np.vstack(saved_trees)
-    tree_labels = np.ones_like(new_tree_instances)
-    final_point_cloud = np.vstack([point_cloud, tree_point_cloud])
-    final_labels = np.hstack([labels, tree_labels])
-    final_instances = np.hstack([instances, new_tree_instances])
-    from TreeToolML.data.data_gen_utils.dataloaders import save_cloud
+    labels = np.ones(len(point_cloud))
 
-    data_path = "datasets/custom_data/preprocessed"
+    from TreeToolML.data.data_gen_utils.dataloaders import (
+        save_cloud,
+        save_cloud_filtered,
+    )
+
+    data_path = "datasets/custom_data/full_cloud/"
+    os.makedirs(data_path, exist_ok=True)
+
     save_cloud(
-        data_path + "/" + "new_paris" + ".ply",
-        final_point_cloud.astype(np.float32),
-        final_labels.astype(np.int32),
-        final_instances.astype(np.float32),
+        data_path + "/" + "full_clouds" + ".ply",
+        point_cloud.astype(np.float32),
+        labels.astype(np.int32),
+        instances.astype(np.float32),
     )
+
+    point_cloud = np.vstack(all_datasets["filtered"])
+    instances = np.hstack(
+        [np.ones(len(tree)) * n for n, tree in enumerate(all_datasets["filtered"])]
+    )
+    labels = np.ones(len(point_cloud))
+
+    save_cloud(
+        data_path + "/" + "full_filter" + ".ply",
+        point_cloud.astype(np.float32),
+        labels.astype(np.int32),
+        instances.astype(np.float32),
+    )
+
+    info_dict = {
+        n: {"center": center, "cyl": cyl, "model": model}
+        for n, (center, cyl, model) in enumerate(
+            zip(
+                all_datasets["centers"],
+                all_datasets["cylinders"],
+                all_datasets["models"],
+            )
+        )
+    }
+
+    with open(data_path + "/" + "info" + ".pk", "wb") as f:
+        pickle.dump(info_dict, f)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ try:
 except ImportError:
     use_ml = False
 from sklearn.model_selection import train_test_split
+import pickle
+import os
 
 
 def save_cloud(dir, points, labels=None, instances=None):
@@ -34,11 +36,46 @@ def save_cloud(dir, points, labels=None, instances=None):
     ).T
     vertex = np.empty(
         len(array),
-        dtype=[("x", "f4"), ("y", "f4"), ("z", "f4"), ("class", "i4"), ("id", "f4")],
+        dtype=dtype_list,
     )
     vertex["x"] = array[:, 0]
     vertex["y"] = array[:, 1]
     vertex["z"] = array[:, 2]
+    if instances is not None:
+        vertex["class"] = array[:, 3]
+    if instances is not None:
+        vertex["id"] = array[:, 4]
+    el = PlyElement.describe(vertex, "vertex")
+
+    with open(dir, "wb") as f:
+        PlyData([el]).write(f)
+
+def save_cloud_filtered(dir, filtered, labels=None, instances=None):
+    assert len(filtered.shape) == 2, "Not valid point_cloud"
+    elems = filtered.shape[0]
+    dtype_list = [("fx", "f4"), ("fy", "f4"), ("fz", "f4")]
+    if labels is None:
+        label = np.array([])
+    else:
+        label = labels
+        dtype_list.append(("class", "f4"))
+
+    if instances is None:
+        instance = np.array([])
+    else:
+        instance = instances
+        dtype_list.append(("id", "f4"))
+
+    array = np.vstack(
+        [filtered.T, label.reshape(-1, elems), instance.reshape(-1, elems),]
+    ).T
+    vertex = np.empty(
+        len(array),
+        dtype=dtype_list,
+    )
+    vertex["fx"] = array[:, 0]
+    vertex["fy"] = array[:, 1]
+    vertex["fz"] = array[:, 2]
     if instances is not None:
         vertex["class"] = array[:, 3]
     if instances is not None:
@@ -126,7 +163,6 @@ def downsample(points, features=None, labels=None, grid_size=0.6, ml=False):
         out_labels = np.concatenate(label_list, 0).ravel().astype(np.int32)
         return out_points, out_features, out_labels
 
-
 class data_loader:
     def __init__(self, onlyTrees=False, preprocess=False, train_split=False) -> None:
         self.data_loaded = False
@@ -144,6 +180,7 @@ class data_loader:
 
     def load_data(self, dir):
         point_cloud, labels, instances = load_cloud(dir)
+
         assert (len(point_cloud) > 0) & (len(labels) > 0) & (len(instances) > 0)
         self.point_cloud = point_cloud
         self.labels = labels
@@ -173,7 +210,6 @@ class data_loader:
                 self.trees = unique_trees
             else:
                 self.trees = tree_points
-            self.trees = [i for i in self.trees if len(i) > 4000]
             if self.train_split:
                 indexes = np.arange(len(self.trees))
                 self.train_trees, rest_trees = train_test_split(indexes, test_size=0.2)
@@ -286,3 +322,53 @@ class data_loader:
         bench_dict['forground'].step('rest')
 
         return smaller_forground
+
+class data_loader_fullcloud(data_loader):
+    def load_data(self, dir):
+        super().load_data(os.path.join(dir, 'full_filter' + ".ply"))
+        with open(dir + "/" + "info" + ".pk", "rb") as f:
+            info_dict = pickle.load(f)
+        
+        self.centers = [i['center'] for i in info_dict.values()]
+        self.cylinders = [i['cyl'] for i in info_dict.values()]
+        self.models = [i['model'] for i in info_dict.values()]
+
+    def get_random_forground(
+        self,
+        split=None,
+    ):
+        bench_dict['forground'].gstep()
+        if self.trees is not None:
+            point_cloud = self.trees
+        else:
+            point_cloud = self.get_trees(unique=True)
+        bench_dict['forground'].step('get trees')
+
+        if self.train_split:
+            if split == "train":
+                choice = np.random.choice(self.train_trees)
+            elif split == "test":
+                choice = np.random.choice(self.test_trees)
+            elif split == "val":
+                choice = np.random.choice(self.val_trees)
+            smaller_forground = point_cloud[choice]
+            center = self.centers[choice]
+            while len(smaller_forground) < 120:
+                if split:
+                    choice = np.random.choice(self.train_trees)
+                else:
+                    choice = np.random.choice(self.test_trees)
+                smaller_forground = point_cloud[choice]
+                center = self.centers[choice]
+        else:
+            point_cloud_len = len(point_cloud)
+            choice = np.random.choice(point_cloud_len)
+            smaller_forground = point_cloud[choice]
+            center = self.centers[choice]
+            while len(smaller_forground) < 120:
+                choice = np.random.choice(point_cloud_len)
+                smaller_forground = point_cloud[choice]
+                center = self.centers[choice]
+        bench_dict['forground'].step('split')
+
+        return smaller_forground, center

@@ -14,7 +14,7 @@ import TreeToolML.layers.Loss_torch as Loss_torch
 import TreeToolML.utils.py_util as py_util
 from torch.utils.data import DataLoader
 from TreeToolML.config.config import combine_cfgs
-from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset, tree_dataset_cloud
+from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset
 from TreeToolML.IndividualTreeExtraction.center_detection.center_detection import \
     center_detection
 from TreeToolML.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import \
@@ -24,7 +24,6 @@ from TreeToolML.Libraries.Plane import makepointvector
 # import AccessibleRegionGrowing as ARG
 from TreeToolML.model.build_model import build_model
 from TreeToolML.utils.default_parser import default_argument_parser
-from TreeToolML.utils.file_tracability import get_model_dir, get_checkpoint_file, find_model_dir
 
 
 def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
@@ -71,24 +70,11 @@ def individual_tree_extraction(args):
 
     """Individual Tree Extraction"""
     ####restore trained PDE-net
-    model_name = cfg.TRAIN.MODEL_NAME
-    result_dir = os.path.join("results", model_name)
-    result_dir = find_model_dir(result_dir)
-    checkpoint_file = os.path.join(result_dir,'trained_model','checkpoints')
-    checkpoint_path = get_checkpoint_file(checkpoint_file)
-
     model = build_model(cfg).cuda()
     if device == "cuda":
         model.cuda()
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
 
-    savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
-
-    train_path = os.path.join(savepath, "training_data")
-    val_path = os.path.join(savepath, "validating_data")
-
-    generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, return_centers=True)
+    generator_val = tree_dataset(cfg.TRAIN.PATH, cfg.TRAIN.N_POINTS, return_centers=True)
     test_loader = DataLoader(generator_val, 1, shuffle=True, num_workers=0)
     ####
     file_list = os.listdir(cfg.VALIDATION.PATH)
@@ -111,7 +97,7 @@ def individual_tree_extraction(args):
         ####Pointwise direction prediction
         xyz_direction = prediction(model, nor_testdata, args)
         ####tree center detection
-        if False:
+        if True:
             xyz = xyz_direction[:, :3]
             angles = np.rad2deg(np.arctan2(directions[:, 1], directions[:, 0]))
             ps = o3d_pointSetClass(xyz, angles)
@@ -176,7 +162,7 @@ def individual_tree_extraction(args):
 
             open3dpaint(
                 [ps] + [makesphere(i, 0.1) for i in object_centers],
-                pointsize=2,
+                pointsize=5,
                 axis=True,
             )
 
@@ -191,7 +177,7 @@ def individual_tree_extraction(args):
                 open3dpaint(
                     sepponts
                     + [makesphere(i, 0.05) for i in object_center_list],
-                    pointsize=4,
+                    pointsize=8,
                     axis=True,
                 )
 
