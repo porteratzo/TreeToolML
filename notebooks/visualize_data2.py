@@ -5,9 +5,8 @@ from typing import DefaultDict
 sys.path.append("..")
 import os
 sys.path.append('/home/omar/Documents/mine/TreeTool')
-os.chdir('/home/omar/Documents/mine/TreeToolML')
+#os.chdir("..")
 
-#%%
 import pclpy
 import open3d
 from TreeToolML.Libraries.open3dvis import o3d_pointSetClass, open3dpaint
@@ -27,14 +26,15 @@ from TreeToolML.utils.tictoc import bench_dict
 cfg_path = os.path.join('configs','datasets','trunks.yaml')
 cfg = combine_cfgs(cfg_path, [])
 #%%
-if True:
+if False:
     loader = all_data_loader(
         onlyTrees=False, preprocess=False, default=False, train_split=True
     )
 
     loader.load_all("datasets/custom_data/preprocessed")
+    #%%
     cluster, labels = loader.get_tree_cluster(
-        split='train',
+        train=True,
         max_trees=cfg.DATA_CREATION.AUGMENTATION.MAX_TREES,
         translation_xy=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_XY,
         translation_z=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_Z,
@@ -63,39 +63,21 @@ def makesphere(centroid=[0, 0, 0], radius=1, dense=90):
     ).T
     return sphere
 #%%
-savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
+from TreeToolML.data.data_gen_utils.all_dataloader_fullcloud import all_data_loader_cloud
+loader = all_data_loader_cloud(
+        onlyTrees=False, preprocess=False, default=False, train_split=True
+    )
+loader.load_all("datasets/custom_data/full_cloud")
 
-train_path = os.path.join(savepath, "training_data")
-generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, return_centers=True, normal_filter=True)
-for i in np.random.choice(20,10):
-    cloud,_,labels, centers = generator_training[i]
-    spheres = [makesphere(p,0.05) for p in centers]
-    open3dpaint([cloud] + spheres, pointsize=2, axis=0.2)
-    #open3dpaint([cloud], pointsize=2, axis=0.1)
-    break
 #%%
-import numpy as np
-#generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, return_centers=True, normal_filter=False)
-for i in np.random.choice(100,10):
-    #cloud,_,labels, centers = generator_training[i]
-    spheres = [makesphere(p,0.05) for p in centers]
-    open3dpaint([cloud] + spheres, pointsize=3, axis=0.2)
-    #open3dpaint([cloud], pointsize=2, axis=0.1)
-    fcloud = py_util.normal_filter(cloud, 0.1, 0.6, 0.06)
-    open3dpaint([fcloud] + spheres, pointsize=3, axis=0.2)
-    break
-#%%
-import open3d as o3d
-# %%
-generator_training = tree_dataset(train_path, cfg.TRAIN.N_POINTS, return_centers=True)
-for i in tqdm(np.random.choice(100,10)):
-    cloud,_,labels, centers = generator_training[i]
-bench_dict.save()
-# %%
-
-# %%
-ixd = py_util.downsample(cloud, return_idx=True)
-# %%
-ixd
-
-# %%
+cluster, labels, centers = loader.get_tree_cluster(
+                split="train",
+                max_trees=cfg.DATA_CREATION.AUGMENTATION.MAX_TREES,
+                translation_xy=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_XY,
+                translation_z=cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_Z,
+                scale=cfg.DATA_CREATION.AUGMENTATION.SCALE,
+                xy_rotation=cfg.DATA_CREATION.AUGMENTATION.XY_ROTATION,
+                dist_between=cfg.DATA_CREATION.AUGMENTATION.MIN_DIST_BETWEEN,
+                do_normalize=cfg.DATA_CREATION.AUGMENTATION.DO_NORMALIZE,
+            )
+open3dpaint(cluster + [makesphere(i[0]) for i in centers])

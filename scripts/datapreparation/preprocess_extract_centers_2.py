@@ -6,9 +6,10 @@ import os
 from matplotlib.pyplot import axis
 
 sys.path.append(".")
+sys.path.append('/home/omar/Documents/mine/TreeTool')
 import TreeToolML.utils.py_util as py_util
 
-sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
+
 import TreeTool.utils as utils
 from TreeToolML.config.config import combine_cfgs
 from TreeToolML.utils.default_parser import default_argument_parser

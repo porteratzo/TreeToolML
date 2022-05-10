@@ -5,6 +5,7 @@ from json import load
 import sys
 
 sys.path.append(".")
+sys.path.append('/home/omar/Documents/mine/TreeTool')
 from TreeToolML.config.config import combine_cfgs
 from TreeToolML.utils.default_parser import default_argument_parser
 from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader

@@ -34,6 +34,7 @@ _C.MODEL.MODEL_NAME = 'RRFSegNet'
 # data augmentation parameters with albumentations library
 _C.DATA_PREPROCESSING = CfgNode()
 _C.DATA_PREPROCESSING.DATA_PATH = "datasets/custom_data"
+_C.DATA_PREPROCESSING.PC_FILTER = 0
 
 _C.DATA_CREATION = CfgNode()
 _C.DATA_CREATION.CENTER_METHOD = 0

@@ -4,7 +4,7 @@ from pickletools import optimize
 import sys
 
 sys.path.append(".")
-sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
+sys.path.append("/home/omar/Documents/mine/TreeTool")
 import os
 import sys
 
@@ -25,6 +25,7 @@ from TreeToolML.utils.file_tracability import get_model_dir
 import traceback
 from TreeToolML.Libraries.open3dvis import open3dpaint_sphere
 from TreeToolML.utils.file_tracability import get_model_dir, get_checkpoint_file, find_model_dir
+torch.backends.cudnn.benchmark = True
 
 class start_bench:
         def __init__(self, dataloader) -> None:
@@ -99,7 +100,7 @@ def main(args):
 
     train_path = os.path.join(savepath, "training_data")
     val_path = os.path.join(savepath, "validating_data")
-    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=True, return_centers=False)
+    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=cfg.DATA_PREPROCESSING.PC_FILTER, return_centers=False)
     generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, normal_filter=True)
     ###optimizer--Adam
 
@@ -121,6 +122,7 @@ def main(args):
         scheduler.load_state_dict(checkpoint['scheduler']) if checkpoint.get('scheduler',False) else None
         init_loss = checkpoint['loss'] if checkpoint.get('loss',False) else None
         init_val_loss = checkpoint['val_loss'] if checkpoint.get('val_loss',False) else None
+        print(f'starting from epoch {start_epoch}')
     writer = SummaryWriter(result_dir)
 
     try:
@@ -207,7 +209,7 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
     model.train()
     for i, (batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(start_bench(generator), )):
     #for i,(batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(generator)):
-        opt.zero_grad()
+        opt.zero_grad(set_to_none=True)
         bench_dict['epoch'].step('iter')
 
         batch_train_data = batch_train_data.half().to(device)

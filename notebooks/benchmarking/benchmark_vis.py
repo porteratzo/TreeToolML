@@ -3,16 +3,17 @@
 import sys
 from typing import DefaultDict
 
-#sys.path.append("..")
+sys.path.append("../..")
 import os
 
-#os.chdir("..")
+os.chdir("../..")
 #%%
-sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
+sys.path.append("/home/omar/Documents/mine/TreeTool")
+sys.path.append("/home/omar/Documents/mine/IndividualTreeExtraction/voxel_region_grow/")
 import argparse
 from collections import defaultdict
 
-import libraries.tree_tool as treeTool
+from TreeTool.tree_tool import TreeTool
 import numpy as np
 import pandas as pd
 import pclpy
@@ -37,6 +38,7 @@ from TreeToolML.utils.py_util import (
     makesphere,
     shuffle_data,
 )
+from TreeToolML.Libraries.open3dvis import open3dpaint
 
 #%%
 args = argparse.Namespace
@@ -98,12 +100,12 @@ EvaluationMetrics["n_extr"] = []
 EvaluationMetrics["location_y"] = []
 EvaluationMetrics["diameter_y"] = []
 
-for number in tqdm(range(1,7,1)):
+for number in tqdm(range(2,3,1)):
     cloud_file = f"benchmark/subsampled_data/TLS_Benchmarking_Plot_{number}_MS.pcd"
     PointCloud = pclpy.pcl.PointCloud.PointXYZ()
     pclpy.pcl.io.loadPCDFile(cloud_file, PointCloud)
 
-    treetool = treeTool.TreeTool(PointCloud)
+    treetool = TreeTool(PointCloud)
     treetool.step_1_remove_floor()
     treetool.step_2_normal_filtering(
         verticality_threshold=0.08, curvature_threshold=0.12, search_radius=0.1
@@ -158,14 +160,7 @@ for number in tqdm(range(1,7,1)):
     treetool.step_6_get_cylinder_tree_models()
     treetool.step_7_ellipse_fit()
 
-    TreeDict = load_gt(path=f"benchmark/annotations/TLS_Benchmarking_Plot_{number}_LHD.txt")
-
-    CostMat = np.ones([len(TreeDict), len(treetool.visualization_cylinders)])
-    for X, datatree in enumerate(TreeDict):
-        for Y, foundtree in enumerate(treetool.finalstems):
-            CostMat[X, Y] = np.linalg.norm([datatree[0:2] - foundtree["model"][0:2]])
-
-    dataindex, foundindex = linear_sum_assignment(CostMat, maximize=False)
-
-    store_metrics(EvaluationMetrics, treetool, TreeDict, dataindex, foundindex)
-save_eval_results(EvaluationMetrics=EvaluationMetrics)
+# %%
+cloud_match = [i['tree'] for i in treetool.finalstems]+[i for i in treetool.visualization_cylinders]
+open3dpaint(cloud_match+[PointCloud.xyz], pointsize=2)
+# %%

@@ -1,9 +1,9 @@
 #%%
 
 import sys
-sys.path.append("..")
+sys.path.append("../..")
 import os
-os.chdir('..')
+os.chdir('../..')
 #%%
 sys.path.append('/home/omar/Documents/Mine/Git/TreeTool')
 import open3d as o3d

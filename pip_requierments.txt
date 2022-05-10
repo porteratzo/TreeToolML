@@ -3,3 +3,5 @@ tqdm
 numpy
 yacs
 plyfile
+fvcore
+tensorboard
