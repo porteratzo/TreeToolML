@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import TreeTool.utils as utils
 
 def make_benchmark_metrics():
     Methods = [
@@ -394,3 +395,44 @@ def store_metrics(EvaluationMetrics, treetool, TreeDict, dataindex, foundindex):
         np.sqrt(np.sum(np.array(diametererrorComb) ** 2) / len(diametererrorComb))
     )
     return EvaluationMetrics
+
+def confusion_metrics(treetool, TreeDict, dataindex, foundindex):
+    # Get metrics
+    FNS = []
+    FPS = []
+    TPS = []
+    for i, j in zip(dataindex, foundindex):
+        dist = np.linalg.norm((treetool.finalstems[j]["model"][0:2] - TreeDict[i][0:2]))
+        Xcor, Ycor, diam = TreeDict[i]
+        gt_model = [Xcor, Ycor, 0, 0, 0, 1, diam / 2]
+        gt_tree = utils.makecylinder(model=gt_model, height=7, density=60)
+        if dist < 2:
+            stat_dict = {'true_tree': gt_tree, 'found_tree': treetool.finalstems[j]['tree'], 'true_model': gt_model,
+                         'found_model': treetool.finalstems[j]['model']}
+            TPS.append(stat_dict)
+        else:
+            stat_dict = {'true_tree': gt_tree, 'found_tree': None, 'true_model': gt_model,
+                         'found_model': None}
+            FNS.append(stat_dict)
+            stat_dict = {'true_tree': None, 'found_tree': treetool.finalstems[j]['tree'], 'true_model': None,
+                         'found_model': treetool.finalstems[j]['model']}
+            FPS.append(stat_dict)
+
+    if len(TreeDict) > len(dataindex):
+        for i in np.arange(len(TreeDict))[~np.isin(np.arange(len(TreeDict)), dataindex)]:
+            Xcor, Ycor, diam = TreeDict[i]
+            gt_model = [Xcor, Ycor, 0, 0, 0, 1, diam / 2]
+            gt_tree = utils.makecylinder(model=gt_model, height=7, density=60)
+            stat_dict = {'true_tree': gt_tree, 'found_tree': None, 'true_model': gt_model,
+                         'found_model': None}
+            FNS.append(stat_dict)
+
+    if len(treetool.finalstems) > len(foundindex):
+        for i in np.arange(len(treetool.finalstems))[~np.isin(np.arange(len(treetool.finalstems)), foundindex)]:
+            stat_dict = {'true_tree': None, 'found_tree': treetool.finalstems[i]['tree'], 'true_model': None,
+                         'found_model': treetool.finalstems[i]['model']}
+            FPS.append(stat_dict)
+
+
+
+    return [TPS,FPS,FNS]

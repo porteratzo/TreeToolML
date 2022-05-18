@@ -14,7 +14,7 @@ import torch
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
 from TreeToolML.utils.default_parser import default_argument_parser
-from TreeToolML.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results
+from TreeToolML.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, confusion_metrics
 from TreeToolML.config.config import combine_cfgs
 import TreeToolML.utils.py_util as py_util
 from TreeToolML.IndividualTreeExtraction.center_detection.center_detection import (
@@ -88,6 +88,8 @@ def main(args):
     EvaluationMetrics["location_y"] = []
     EvaluationMetrics["diameter_y"] = []
 
+    confMat_list = []
+
     for number in tqdm(range(1,7,1)):
         cloud_file = f"benchmark/subsampled_data/TLS_Benchmarking_Plot_{number}_MS.pcd"
         PointCloud = pclpy.pcl.PointCloud.PointXYZ()
@@ -158,7 +160,10 @@ def main(args):
         dataindex, foundindex = linear_sum_assignment(CostMat, maximize=False)
 
         store_metrics(EvaluationMetrics, treetool, TreeDict, dataindex, foundindex)
+        confMat_list.append(confusion_metrics(treetool, TreeDict, dataindex, foundindex))
     save_eval_results(path=f'{result_dir}/results.npz', EvaluationMetrics=EvaluationMetrics)
+    np.savez(f'{result_dir}/confusion_results.npz',confMat_list=confMat_list)
+
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
