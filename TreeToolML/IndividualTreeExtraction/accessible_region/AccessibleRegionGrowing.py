@@ -7,9 +7,9 @@ Created on Mon July 11 18:50:39 2020
 import numpy as np
 import os
 import sys
-sys.path.append('/home/omar/Documents/Mine/Git/TreeToolML/TreeToolML/IndividualTreeExtraction/voxel_region_grow')
-#import TreeToolML.IndividualTreeExtraction.voxel_region_grow.VoxelRegionGrow
-import VoxelRegionGrow
+#sys.path.append('/home/omar/Documents/Mine/Git/TreeToolML/TreeToolML/IndividualTreeExtraction/voxel_region_grow')
+import TreeToolML.IndividualTreeExtraction.voxel_region_grow.VoxelRegionGrow as VoxelRegionGrow
+#import VoxelRegionGrow
 
 def detect_accessible_region(input_xyz, point_directions, center_xyz, voxel_size, angle_threshold=np.pi / 9):
     """

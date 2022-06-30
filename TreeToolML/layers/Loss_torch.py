@@ -32,7 +32,7 @@ def slack_based_direction_loss(pre_direction, gt_direction, sigma=0.955, use_dis
     _gt_direction = f.normalize(gt_direction[:, :, :3], dim=2, eps=1e-20)
     _pre_direction = f.normalize(_pre_direction[:, :, :3], dim=2, eps=1e-20)
 
-    if use_distance and (gt_direction.shape[2]>3):
+    if use_distance:
         loss = sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction) * torch.unsqueeze(
             torch.clamp(1 - gt_direction[:, :, 3], 0, 1), -1), dim=2)
     else:

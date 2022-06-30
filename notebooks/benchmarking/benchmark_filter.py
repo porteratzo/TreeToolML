@@ -51,9 +51,9 @@ def main(args):
     if device == "cuda":
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_number)
 
-    Nd = 80
-    ARe = np.pi / 9.0
-    voxel_size = 0.08
+    Nd = cfg.BENCHMARKING.XY_THRESHOLD
+    ARe = np.deg2rad(cfg.BENCHMARKING.COMBINE_STEMS)
+    voxel_size = cfg.BENCHMARKING.VOXEL_SIZE
 
     sample_side_size = cfg.BENCHMARKING.WINDOW_STRIDE
     overlap = cfg.BENCHMARKING.OVERLAP

@@ -1,7 +1,7 @@
-# %%
+#%%
 import sys
 
-# sys.path.append("../..")
+sys.path.append("../..")
 import os
 
 sys.path.append(".")
@@ -17,8 +17,9 @@ from TreeToolML.utils.file_tracability import find_model_dir
 
 # %%
 models_multi = []
-models_multi.extend(['baseline_no_IOU', 'baseline_no_stem', 'baseline_no_stem_iou'])
-models_multi.extend(['baseline', 'baseline_smaller_window_4', 'baseline_smaller_window_6', 'baseline_smaller_window_10'])
+#models_multi.extend(['baseline_no_IOU', 'baseline_no_stem', 'baseline_no_stem_iou'])
+#models_multi.extend(['baseline', 'baseline_smaller_window_4', 'baseline_smaller_window_6', 'baseline_smaller_window_10'])
+models_multi.extend(['_baseline', 'baseline_small', 'baseline_smaller', 'baseline_big'])
 metrics = {}
 BenchmarkMetrics, Methods = make_benchmark_metrics()
 for model in list(models_multi):

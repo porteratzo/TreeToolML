@@ -1,0 +1,7 @@
+_BASE_: ../baseline.yaml
+
+TRAIN:
+  MODEL_NAME: 'trunks'
+
+BENCHMARKING:
+  VOXEL_SIZE: 0.12

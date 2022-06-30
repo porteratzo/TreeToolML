@@ -73,6 +73,17 @@
                 "--cfg",
                 "configs/datasets/trunks.yaml",
             ]
+        },
+        {
+            "name": "Python: bench",
+            "type": "python",
+            "request": "launch",
+            "program": "notebooks/benchmarking/benchmark_filter.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--cfg",
+                "configs/experimentos_voxelsize/subconfigs/baseline_small.yaml",
+            ]
         }
     ]
 }

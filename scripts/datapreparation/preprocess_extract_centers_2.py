@@ -3,10 +3,8 @@ import enum
 import sys
 import os
 
-from matplotlib.pyplot import axis
-
 sys.path.append(".")
-sys.path.append('/home/omar/Documents/mine/TreeTool')
+sys.path.append("/home/omar/Documents/mine/TreeTool")
 import TreeToolML.utils.py_util as py_util
 
 
@@ -17,10 +15,6 @@ from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
 import numpy as np
 from tqdm import tqdm
 import pickle
-
-from TreeToolML.utils.tictoc import bench_dict
-
-from TreeToolML.utils.tictoc import bench_dict
 from torch.utils.data import Dataset
 from TreeToolML.Libraries.open3dvis import open3dpaint, sidexsidepaint
 
@@ -98,9 +92,23 @@ def main(args):
             else:
                 badd_trees.append(centered_tree)
         print("orig tree number", len(saved_trees))
-        #sidexsidepaint(saved_trees, visualization_cylinders, [utils.makesphere(i,0.1) for i in saved_centers],pointsize=2, axis=1)
-        #sidexsidepaint(saved_filtered, visualization_cylinders, [utils.makesphere(i,0.1) for i in saved_centers],pointsize=2, axis=1)
-        #sidexsidepaint(badd_trees,pointsize=2, axis=1)
+        """
+        sidexsidepaint(
+            saved_trees,
+            visualization_cylinders,
+            [utils.makesphere(i, 0.1) for i in saved_centers],
+            pointsize=2,
+            axis=1,
+        )
+        sidexsidepaint(
+            saved_filtered,
+            visualization_cylinders,
+            [utils.makesphere(i, 0.1) for i in saved_centers],
+            pointsize=2,
+            axis=1,
+        )
+        """
+        sidexsidepaint(badd_trees, pointsize=2, axis=1)
 
         all_datasets["cloud"].extend(saved_trees)
         all_datasets["centers"].extend(saved_centers)

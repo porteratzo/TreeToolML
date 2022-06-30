@@ -136,3 +136,5 @@ dmypy.json
 /results
 /benchmark
 performance_*
+/results_training
+/results_benchmark

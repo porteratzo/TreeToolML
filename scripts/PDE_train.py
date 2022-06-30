@@ -93,8 +93,8 @@ def main(args):
 
     train_path = os.path.join(savepath, "training_data")
     val_path = os.path.join(savepath, "validating_data")
-    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=cfg.DATA_PREPROCESSING.PC_FILTER, return_centers=False, distances=cfg.TRAIN.DISTANCE)
-    generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, normal_filter=True, distances=cfg.TRAIN.DISTANCE)
+    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=cfg.DATA_PREPROCESSING.PC_FILTER, return_centers=False)
+    generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, normal_filter=True)
     ###optimizer--Adam
 
     init_loss = 999.999

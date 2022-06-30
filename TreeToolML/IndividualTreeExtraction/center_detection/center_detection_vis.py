@@ -1,21 +1,29 @@
+import imp
 import numpy as np
 import TreeToolML.IndividualTreeExtraction.voxel_traversal.VoxelTraversalAlgorithm as VTA
 import TreeToolML.IndividualTreeExtraction.accessible_region.AccessibleRegionGrowing as ARG
+from TreeToolML.Libraries.open3dvis import open3dpaint
+from TreeToolML.Libraries.Plane import makesphere
 from multiprocessing import Pool
 from itertools import repeat
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TKAgg')
 
 
 def show_AR_RG(voxels1, voxels2):
     fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    ax = fig.gca(projection="3d")
     ####accessible region
-    ax.voxels(voxels2, facecolors='red', edgecolor='k', alpha=0.9)
+    ax.voxels(voxels2, facecolors="red", edgecolor="k", alpha=0.9)
     ####region growing results
-    ax.voxels(voxels1, facecolors='green', edgecolor='k')
+    ax.voxels(voxels1, facecolors="green", edgecolor="k")
     plt.show()
 
-def direction_vote_voxels(points, directions, voxel_size, num_voxel_xyz, min_xyz, return_start_points=False):
+
+def direction_vote_voxels(
+    points, directions, voxel_size, num_voxel_xyz, min_xyz, return_start_points=False
+):
     # accumulate count of visited voxels, and accumulate which point traverses each voxel
     # setup
     numpoints = np.size(points, 0)
@@ -32,26 +40,23 @@ def direction_vote_voxels(points, directions, voxel_size, num_voxel_xyz, min_xyz
         for _ in range(int(num_voxel_xyz[0]))
     ]
     ####
-    if True:
-        for i in range(numpoints):
-            # visit voxels based on directions
-            visited_voxels = VTA.voxel_traversal(
-                points[i, :], directions[i, :], min_xyz, num_voxel_xyz, voxel_size
-            )
-            try:
-                for j in range(len(visited_voxels)):
-                    output_voxel_direction_count[
-                        int(visited_voxels[j][0]),
-                        int(visited_voxels[j][1]),
-                        int(visited_voxels[j][2]),
-                    ] += 1
-                    per_voxel_direction_start_points[int(visited_voxels[j][0])][
-                        int(visited_voxels[j][1])
-                    ][int(visited_voxels[j][2])].append(i)
-            except:
-                visited_voxels = VTA.voxel_traversal(
-                points[i, :], directions[i, :], min_xyz, num_voxel_xyz, voxel_size
-            )
+    for i in range(numpoints):
+        # visit voxels based on directions
+        visited_voxels = VTA.voxel_traversal(
+            points[i, :], directions[i, :], min_xyz, num_voxel_xyz, voxel_size
+        )
+        try:
+            for j in range(len(visited_voxels)):
+                output_voxel_direction_count[
+                    int(visited_voxels[j][0]),
+                    int(visited_voxels[j][1]),
+                    int(visited_voxels[j][2]),
+                ] += 1
+                per_voxel_direction_start_points[int(visited_voxels[j][0])][
+                    int(visited_voxels[j][1])
+                ][int(visited_voxels[j][2])].append(points[i, :])
+        except:
+            print("prob")
 
     return output_voxel_direction_count, per_voxel_direction_start_points
 
@@ -108,7 +113,9 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
     (
         output_voxel_direction_count,
         per_voxel_direction_start_points,
-    ) = direction_vote_voxels(xyz, directions, voxel_size, num_voxel_xyz, min_xyz)
+    ) = direction_vote_voxels(
+        xyz, directions, voxel_size, num_voxel_xyz, min_xyz
+    )  # voxel rays and list of start points per voxel
     #####centers in xoy plane
     output_voxel_direction_count_xoy = np.sum(output_voxel_direction_count, axis=2)
     object_centers_xoy = center_detection_xoy(
@@ -122,10 +129,7 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
         temp_centre_xyz = np.array(
             [temp_object_center_xoy[0], temp_object_center_xoy[1]]
         )
-        temp_centre_xyz = (
-            temp_centre_xyz * voxel_size + min_xyz[:2]
-        )  # + voxel_size / 2.0
-        ####
+        temp_centre_xyz = temp_centre_xyz * voxel_size + min_xyz[:2]
         center_xbottom = temp_centre_xyz[0] - voxel_size / 2.0
         center_xup = temp_centre_xyz[0] + voxel_size / 2.0
         center_ybottom = temp_centre_xyz[1] - voxel_size / 2.0
@@ -140,11 +144,6 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
             set(x_vaild_range[0]).intersection(set(y_vaild_range[0]))
         )
 
-        ####discard the fake centers
-        if False:
-            if len(xy_intersection_index) == 0:
-                continue
-        #####
         output_voxel_direction_count_z = output_voxel_direction_count[
             temp_object_center_xoy[0], temp_object_center_xoy[1], :
         ]
@@ -155,14 +154,10 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
             [temp_object_center_xoy[0], temp_object_center_xoy[1], temp_index[0][0]]
         )
 
-
     if len(object_xyz_list) > 0:
         object_xyz_list = np.vstack(object_xyz_list)
-        object_xyz_list = object_xyz_list * voxel_size + min_xyz  # + voxel_size / 2.0
+        object_xyz_list = object_xyz_list * voxel_size + min_xyz
         print("Num of Tree Centers: %d" % int(np.size(object_xyz_list, 0)))
-        ####### further refine detected centers using intersection directions
-    ####### Note that the following steps have not been discussed in our paper #############
-    ####### If higher efficiency is required, these steps can be discarded ###############
         objectVoxelMask_list = []
         sep_points_list = []
         for i in range(np.size(object_xyz_list, 0)):
@@ -228,42 +223,65 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
     else:
         object_xyz_list = np.array([[999, 999, 999]])
         sep_points_list = []
-    
+
     return object_xyz_list, sep_points_list
 
 
-def individual_tree_separation(xyz, directions, center_xyz, voxel_size, min_xyz, num_voxel_xyz,
-                               angle_threshold, visulization=False):
+def individual_tree_separation(
+    xyz,
+    directions,
+    center_xyz,
+    voxel_size,
+    min_xyz,
+    num_voxel_xyz,
+    angle_threshold,
+    visulization=False,
+):
 
     #####generate accessible region
-    accessible_region, accessible_index = ARG.detect_accessible_region(xyz, directions, center_xyz,
-                                                                       voxel_size, angle_threshold)
+    #points_in_accessible_region
+    accessible_region, accessible_index = ARG.detect_accessible_region(
+        xyz, directions, center_xyz, voxel_size, angle_threshold
+    )
+    if visulization:
+        open3dpaint([np.vstack(xyz)]+[np.vstack(accessible_region)] + [makesphere(center_xyz, 0.1)], pointsize=2)
     #####
     #####voxelize accessible region
-    accessible_region_voxels, seed_voxel, valid_voxels, voxel2point_index_list = ARG.voxelization(accessible_region,
-                                                                                              accessible_index,
-                                                                                              voxel_size,
-                                                                                              center_xyz,
-                                                                                              min_xyz,
-                                                                                              num_voxel_xyz)
+    (
+        accessible_region_voxels,
+        seed_voxel,
+        valid_voxels,
+        voxel2point_index_list,
+    ) = ARG.voxelization(
+        accessible_region,
+        accessible_index,
+        voxel_size,
+        center_xyz,
+        min_xyz,
+        num_voxel_xyz,
+    )
     ###########
     output_voxels_v2 = np.array(accessible_region_voxels)
     output_voxels_v2 = output_voxels_v2.astype(bool)
 
     ####voxel-based region growing
     try:
-        objcetMask, objcetMaskVoxelIndex = ARG.voxel_region_grow(accessible_region_voxels, seed_voxel)
+        objcetMask, objcetMaskVoxelIndex = ARG.voxel_region_grow(
+            accessible_region_voxels, seed_voxel
+        )
     except:
-        print('')
+        print("")
 
     ###########visualization
     objcetMask = np.array(objcetMask)
     objcetMask = objcetMask.astype(bool)
-    if True:
+    if visulization:
         show_AR_RG(objcetMask, output_voxels_v2)
 
     ######refine seed voxels
-    index_voxel2point = [valid_voxels.index(tempMaskIndex) for tempMaskIndex in objcetMaskVoxelIndex]
+    index_voxel2point = [
+        valid_voxels.index(tempMaskIndex) for tempMaskIndex in objcetMaskVoxelIndex
+    ]
     ######
     temp_object_xyz_index = []
     for temp_index_voxel2point in index_voxel2point:
