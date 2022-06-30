@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import TreeTool.utils as utils
 
+
 def make_benchmark_metrics():
     Methods = [
-        "TreeTool",
         "CAF",
         "TUDelft",
         "FGI",
@@ -20,17 +20,17 @@ def make_benchmark_metrics():
         "TreeMetrics",
         "UofL",
         "WHU",
+        "TreeTool",
     ]
-    CompletenessEasy = [81, 88, 66, 94, 84, 74, 88, 89, 94, 87, 82, 96, 36, 69, 89]
-    CompletenessMedium = [64, 75, 49, 88, 65, 59, 81, 78, 88, 74, 68, 87, 27, 58, 80]
-    CompletenessHard = [54, 44, 16, 66, 27, 25, 45, 46, 64, 39, 39, 63, 18, 37, 52]
+    CompletenessEasy = [88, 66, 94, 84, 74, 88, 89, 94, 87, 82, 96, 36, 69, 89,81, ]
+    CompletenessMedium = [75, 49, 88, 65, 59, 81, 78, 88, 74, 68, 87, 27, 58, 80,64, ]
+    CompletenessHard = [44, 16, 66, 27, 25, 45, 46, 64, 39, 39, 63, 18, 37, 52,54, ]
 
-    CorrectnessEasy = [84, 96, 69, 90, 97, 94, 44, 77, 86, 94, 95, 77, 99, 86, 86]
-    CorrectnessMedium = [84, 99, 61, 89, 98, 97, 44, 76, 91, 95, 96, 89, 99, 91, 88]
-    CorrectnessHard = [90, 99, 41, 93, 97, 97, 70, 74, 91, 95, 97, 88, 99, 91, 90]
+    CorrectnessEasy = [96, 69, 90, 97, 94, 44, 77, 86, 94, 95, 77, 99, 86, 86, 84]
+    CorrectnessMedium = [99, 61, 89, 98, 97, 44, 76, 91, 95, 96, 89, 99, 91, 88, 84]
+    CorrectnessHard = [99, 41, 93, 97, 97, 70, 74, 91, 95, 97, 88, 99, 91, 90, 90]
 
     StemRMSEEasy = [
-        1.5,
         2.2,
         15.4,
         2.8,
@@ -45,9 +45,9 @@ def make_benchmark_metrics():
         3.0,
         8.8,
         5.8,
+        1.5,
     ]
     StemRMSEMedium = [
-        2.5,
         3.2,
         18.2,
         3.0,
@@ -62,9 +62,9 @@ def make_benchmark_metrics():
         2.6,
         11.6,
         8.2,
+        2.5,
     ]
     StemRMSEHard = [
-        2.6,
         4.0,
         27.3,
         6.4,
@@ -79,10 +79,10 @@ def make_benchmark_metrics():
         2.4,
         14.4,
         12.0,
+        2.6,
     ]
 
     DBHRMSEEasy = [
-        2.6,
         2.0,
         12.8,
         1.4,
@@ -97,9 +97,9 @@ def make_benchmark_metrics():
         1.2,
         6.2,
         7.2,
+        2.6,
     ]
     DBHRMSEMedium = [
-        2.2,
         2.2,
         12.2,
         1.8,
@@ -114,9 +114,9 @@ def make_benchmark_metrics():
         2.0,
         8.4,
         9.6,
+        2.2,
     ]
     DBHRMSEHard = [
-        2.2,
         1.8,
         17.4,
         2.0,
@@ -131,6 +131,7 @@ def make_benchmark_metrics():
         2.4,
         9.4,
         12.4,
+        2.2,
     ]
 
     BenchmarkMetrics = {}
@@ -186,7 +187,6 @@ def save_eval_results(path="results", EvaluationMetrics={}):
 
 
 def load_eval_results(path="results.npz"):
-
     fileFGI = np.load(path)
 
     alldata = [
@@ -396,6 +396,7 @@ def store_metrics(EvaluationMetrics, treetool, TreeDict, dataindex, foundindex):
     )
     return EvaluationMetrics
 
+
 def confusion_metrics(treetool, TreeDict, dataindex, foundindex):
     # Get metrics
     FNS = []
@@ -406,7 +407,7 @@ def confusion_metrics(treetool, TreeDict, dataindex, foundindex):
         Xcor, Ycor, diam = TreeDict[i]
         gt_model = [Xcor, Ycor, 0, 0, 0, 1, diam / 2]
         gt_tree = utils.makecylinder(model=gt_model, height=7, density=60)
-        if dist < 2:
+        if dist < 0.4:
             stat_dict = {'true_tree': gt_tree, 'found_tree': treetool.finalstems[j]['tree'], 'true_model': gt_model,
                          'found_model': treetool.finalstems[j]['model']}
             TPS.append(stat_dict)
@@ -433,6 +434,4 @@ def confusion_metrics(treetool, TreeDict, dataindex, foundindex):
                          'found_model': treetool.finalstems[i]['model']}
             FPS.append(stat_dict)
 
-
-
-    return [TPS,FPS,FNS]
+    return [TPS, FPS, FNS]

@@ -114,8 +114,8 @@ class get_model_RRFSegNet(nn.Module):
         self.end_net = nn.Sequential(
             build_conv_block(1216, 256, True),
             build_conv_block(256, 64),
-            nn.Conv2d(64, 3, kernel_size=[1, 1], stride=[1, 1], padding=0),
-            nn.BatchNorm2d(3, affine=False),
+            nn.Conv2d(64, MODEL_CFG.OUTPUT_NODS, kernel_size=[1, 1], stride=[1, 1], padding=0),
+            nn.BatchNorm2d(MODEL_CFG.OUTPUT_NODS, affine=False),
         )
 
     def forward(self, x):

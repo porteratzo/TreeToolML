@@ -24,6 +24,7 @@ from TreeToolML.utils.default_parser import default_argument_parser
 from TreeToolML.utils.file_tracability import get_model_dir
 import traceback
 from TreeToolML.Libraries.open3dvis import open3dpaint_sphere
+#from torch.profiler import profile, record_function, ProfilerActivity
 from TreeToolML.utils.file_tracability import get_model_dir, get_checkpoint_file, find_model_dir
 torch.backends.cudnn.benchmark = True
 
@@ -65,24 +66,16 @@ def main(args):
     model_name = cfg.TRAIN.MODEL_NAME
     if not args.resume:
         model_name = get_model_dir(model_name)
-        result_dir = os.path.join("results", model_name, "trained_model")
+        result_dir = os.path.join("results_training", model_name, "trained_model")
         os.makedirs(result_dir, exist_ok=True)
-        result_config_path = os.path.join("results", model_name, "full_cfg.yaml")
+        result_config_path = os.path.join("results_training", model_name, "full_cfg.yaml")
         cfg_str = cfg.dump()
         with open(result_config_path, "w") as f: 
             f.write(cfg_str)
 
     DeepPointwiseDirections = build_model(cfg)
 
-
-    device = args.device
-    device = "cuda" if device == "gpu" else device
-    device = device if torch.cuda.is_available() else "cpu"
-
-    if device == "cuda":
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_number)
-    if device == "cuda":
-        DeepPointwiseDirections.cuda()
+    device = device_configs(DeepPointwiseDirections, args)
 
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
@@ -100,8 +93,8 @@ def main(args):
 
     train_path = os.path.join(savepath, "training_data")
     val_path = os.path.join(savepath, "validating_data")
-    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=cfg.DATA_PREPROCESSING.PC_FILTER, return_centers=False)
-    generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, normal_filter=True)
+    generator_training = tree_dataset_cloud(train_path, cfg.TRAIN.N_POINTS, normal_filter=cfg.DATA_PREPROCESSING.PC_FILTER, return_centers=False, distances=cfg.TRAIN.DISTANCE)
+    generator_val = tree_dataset_cloud(val_path, cfg.TRAIN.N_POINTS, normal_filter=True, distances=cfg.TRAIN.DISTANCE)
     ###optimizer--Adam
 
     init_loss = 999.999
@@ -110,7 +103,7 @@ def main(args):
 
     if args.resume:
         model_name = cfg.TRAIN.MODEL_NAME
-        result_dir = os.path.join("results", model_name)
+        result_dir = os.path.join("results_training", model_name, "trained_model")
         result_dir = find_model_dir(result_dir)
         checkpoint_file = os.path.join(result_dir,'trained_model','checkpoints')
         checkpoint_path = get_checkpoint_file(checkpoint_file)
@@ -140,7 +133,7 @@ def main(args):
             )
 
             #####trainging steps
-            temp_loss = train_one_epoch(
+            temp_loss, loss_dict = train_one_epoch(
                 DeepPointwiseDirections,
                 epoch,
                 train_loader,
@@ -148,30 +141,37 @@ def main(args):
                 scaler,
                 scheduler,
                 args,
-                use_amp
+                use_amp,
+                cfg
             )
             for name, weight in DeepPointwiseDirections.named_parameters():
                 writer.add_histogram(name, weight, epoch)
                 writer.add_histogram(f"{name}.grad", weight.grad, epoch)
-            writer.add_scalar("Loss/traning", temp_loss, epoch)
+            writer.add_scalar("Loss/total_training", temp_loss, epoch)
+            for key in loss_dict.keys():
+                writer.add_scalar.add_scalar(f"Loss/train/{loss_dict[key]}", loss_dict[key], epoch)
             torch.cuda.empty_cache()
             #####validating steps
-            val_loss = validation(DeepPointwiseDirections, test_loader, args, use_amp)
+            val_loss, val_loss_dict = validation(DeepPointwiseDirections, test_loader, args, use_amp)
+            for key in val_loss_dict.keys():
+                writer.add_scalar.add_scalar(f"Loss/val/{val_loss_dict[key]}", val_loss_dict[key], epoch)
             writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], epoch)
-            writer.add_scalar("Loss/validation", val_loss, epoch)
+            writer.add_scalar("Loss/total_validation", val_loss, epoch)
 
             if (temp_loss < init_loss) or (epoch % 10 == 0) or (val_loss < init_val_loss):
                 os.makedirs(os.path.join(result_dir,'checkpoints'), exist_ok=True)
-                torch.save(
-                    {
+                save_dict = {
                         "epoch": epoch,
                         "model_state_dict": DeepPointwiseDirections.state_dict(),
                         "optimizer_state_dict": optomizer.state_dict(),
-                        'scaler':scaler,
+                        'scaler':scaler.state_dict(),
                         "loss": temp_loss,
                         "val_loss": val_loss,
-                        'scheduler': scheduler,
-                    },
+                        'scheduler': scheduler.state_dict(),
+                    }
+                save_dict.update({'train_'+key:loss_dict[key] for key in loss_dict.keys()})
+                save_dict.update({'val_' + key: val_loss_dict[key] for key in val_loss_dict.keys()})
+                torch.save(save_dict,
                     os.path.join(result_dir,'checkpoints', f"model-{epoch:03d}-train_loss:{temp_loss:.6f}-val_loss:{val_loss:.6f}.pt",)
                     
                 )
@@ -193,7 +193,18 @@ def main(args):
         quit()
 
 
-def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_amp):
+def device_configs(DeepPointwiseDirections, args):
+    device = args.device
+    device = "cuda" if device == "gpu" else device
+    device = device if torch.cuda.is_available() else "cpu"
+    if device == "cuda":
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_number)
+    if device == "cuda":
+        DeepPointwiseDirections.cuda()
+    return device
+
+
+def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_amp, cfg):
     """ops: dict mapping from string to tf ops"""
     if next(model.parameters()).is_cuda:
         device = "cuda"
@@ -204,8 +215,8 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
     print("-----------------training--------------------")
     print("training steps: %d" % num_batches_training)
 
-    total_loss = 0
     acc_loss = 0
+    loss_dict = {'slackloss':0,'distance_slackloss':0,'distance_loss':0}
     model.train()
     for i, (batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(start_bench(generator), )):
     #for i,(batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(generator)):
@@ -217,8 +228,21 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
         with torch.cuda.amp.autocast(enabled=use_amp):
             y = model(batch_train_data)
             total_loss = Loss_torch.slack_based_direction_loss(
-                y, batch_direction_label_data
+                y, batch_direction_label_data, use_distance=cfg.TRAIN.DISTANCE_LOSS
             )
+            loss_dict['slackloss'] += Loss_torch.slack_based_direction_loss(
+                y, batch_direction_label_data, use_distance=0
+            )
+            loss_dict['distance_slackloss'] += Loss_torch.slack_based_direction_loss(
+                y, batch_direction_label_data, use_distance=1
+            )
+            loss_dict['distance_loss'] += Loss_torch.distance_loss(
+                    y, batch_direction_label_data
+                )
+            if cfg.TRAIN.DISTANCE:
+                total_loss += Loss_torch.distance_loss(
+                    y, batch_direction_label_data
+                )
             acc_loss += total_loss
         bench_dict['epoch'].step('infer')
 
@@ -231,11 +255,13 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
 
         if i % 20 == 0:
             print("loss: %f" % (total_loss))
-
     scheduler.step()
 
+    for key in loss_dict.keys():
+        loss_dict[key] = loss_dict[key].cpu()/num_batches_training
+
     print("trianing_log_epoch_%d" % epoch)
-    return acc_loss.cpu() / (num_batches_training)
+    return acc_loss.cpu() / (num_batches_training), loss_dict
 
 
 def validation(model, generator, args, use_amp):
@@ -245,6 +271,7 @@ def validation(model, generator, args, use_amp):
     num_batches_testing = len(generator)
     total_loss_esd = 0
     gen = iter(generator)
+    loss_dict = {'slackloss': 0, 'distance_slackloss': 0, 'distance_loss': 0}
     model.eval()
     for _ in tqdm(range(num_batches_testing)):
         ###
@@ -258,8 +285,19 @@ def validation(model, generator, args, use_amp):
                 loss_esd_ = Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data
                 )
+                loss_dict['slackloss'] += Loss_torch.slack_based_direction_loss(
+                    y, batch_direction_label_data, use_distance=0
+                )
+                loss_dict['distance_slackloss'] += Loss_torch.slack_based_direction_loss(
+                    y, batch_direction_label_data, use_distance=1
+                )
+                loss_dict['distance_loss'] += Loss_torch.distance_loss(
+                    y, batch_direction_label_data
+                )
                 total_loss_esd += loss_esd_
-    return total_loss_esd.cpu() / num_batches_testing
+    for key in loss_dict.keys():
+        loss_dict[key] = loss_dict[key].cpu()/num_batches_testing
+    return total_loss_esd.cpu() / num_batches_testing, loss_dict
 
 
 if __name__ == "__main__":

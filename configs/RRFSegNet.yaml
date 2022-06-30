@@ -1,5 +1,5 @@
 TRAIN:
-  MODEL_NAME: 'RRFSegNet'
+  MODEL_NAME: FILE
   PATH: datasets/custom_data/PDE/training_data
   BATCH_SIZE: 8
 

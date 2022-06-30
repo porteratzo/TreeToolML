@@ -13,12 +13,8 @@ import matplotlib.cm as cm
 from TreeToolML.config.config import combine_cfgs
 from TreeToolML.utils.file_tracability import find_model_dir
 
-def main(args):
-    cfg_path = args.cfg
-    cfg = combine_cfgs(cfg_path, args.opts)
-    file_name = cfg.FILES.RESULT_FOLDER
-    result_dir = os.path.join("results_benchmark", file_name)
-    result_dir = find_model_dir(result_dir)
+def main():
+    result_dir = os.path.join("results_benchmark", 'treetool')
     EvaluationMetrics = load_eval_results(f'{result_dir}/results.npz')
     BenchmarkMetrics, Methods = make_benchmark_metrics()
     alldata = ["Completeness", "Correctness"]
@@ -74,5 +70,4 @@ def main(args):
     plt.savefig(f'{result_dir}/fig2.jpg',bbox_inches='tight')
 
 if __name__ == "__main__":
-    args = default_argument_parser().parse_args()
-    main(args)
+    main()

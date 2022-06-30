@@ -21,13 +21,14 @@ from TreeToolML.Libraries.open3dvis import open3dpaint
 
 class tree_dataset(Dataset):
     def __init__(
-        self, trainingdata_path, num_points, return_centers=False, normal_filter=False
+        self, trainingdata_path, num_points, return_centers=False, normal_filter=False, distances=False
     ):
         self.files = py_util.get_data_set(trainingdata_path)
         self.path = trainingdata_path
         self.num_points = num_points
         self.return_centers = return_centers
         self.normal_filter = normal_filter
+        self.distances = distances
 
     def __len__(self):
         return len(self.files)
@@ -159,6 +160,11 @@ class tree_dataset_cloud(tree_dataset):
             )
             bench_dict["loader"].step("compute 1")
             temp_direction_label = temp_object_center_xyz - temp_index_object_xyz
+            if self.distances:
+                distances_label = np.linalg.norm(temp_direction_label[:,:2], axis=1).reshape([-1,1])
+                temp_direction_label = temp_direction_label / np.linalg.norm(temp_direction_label, axis=1).reshape(
+                    [-1, 1])
+                temp_direction_label = np.hstack([temp_direction_label,distances_label])
             temp_xyz_direction_label_concat = np.concatenate(
                 [temp_index_object_xyz, temp_direction_label, temp_object_label],
                 axis=-1,

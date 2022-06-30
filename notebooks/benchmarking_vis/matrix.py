@@ -8,7 +8,6 @@ import os
 
 # os.chdir("../..")
 # %%
-sys.path.append("/home/omar/Documents/mine/TreeTool")
 sys.path.append("/home/omar/Documents/mine/IndividualTreeExtraction/voxel_region_grow/")
 import argparse
 from collections import defaultdict
@@ -46,7 +45,6 @@ cfg = combine_cfgs("configs/datasets/trunks.yaml", [])
 model_name = cfg.TRAIN.MODEL_NAME
 result_dir = os.path.join("results", model_name)
 result_dir = find_model_dir(result_dir)
-# %%
 data = np.load(f'{result_dir}/confusion_results.npz', allow_pickle=True)
 confMat_list = data['confMat_list']
 # %%
@@ -69,22 +67,26 @@ for record in confMat_list[plotnumber][0]:
 open3dpaint(tp_gt_trees + tp_found_trees, pointsize=2)
 open3dpaint([forrest + [0.2, 0, 0]] + tp_found_trees, pointsize=2)
 # %%
-print('see false negatives')
+print('see false fp')
 fp_found_trees = []
-for record in confMat_list[plotnumber][2]:
-    if record['true_tree'] is not None:
-        fp_found_trees.append(record['true_tree'])
-open3dpaint([forrest + [0.2, 0, 0]] + fp_found_trees, pointsize=2)
+for record in confMat_list[plotnumber][1]:
+    if record['found_tree'] is not None:
+        fp_found_trees.append(record['found_tree'])
+# open3dpaint([forrest + [0.2, 0, 0]] + fp_found_trees, pointsize=2)
+open3dpaint(fp_found_trees, pointsize=2)
 
 # %%
 print('see false negatives')
 fn_found_trees = []
-for record in confMat_list[plotnumber][1]:
-    if record['found_tree'] is not None:
-        fn_found_trees.append(record['found_tree'])
-open3dpaint([forrest + [0.2, 0, 0]] + fn_found_trees, pointsize=2)
+for record in confMat_list[plotnumber][2]:
+    if record['true_tree'] is not None:
+        fn_found_trees.append(record['true_tree'])
+# open3dpaint([forrest + [0.2, 0, 0]] + fn_found_trees, pointsize=2)
+open3dpaint(fn_found_trees, pointsize=2)
 
 # %%
 open3dpaint(
     [forrest + [0.3, 0, 0]] + [np.vstack(tp_found_trees) + [0.2, 0, 0]] + [np.vstack(fp_found_trees) + [0.1, 0, 0]] + [
         np.vstack(fn_found_trees)], pointsize=2, axis=1)
+# %%
+[len(i) for i in confMat_list[1]]

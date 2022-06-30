@@ -6,6 +6,7 @@ import sys
 import pclpy
 import open3d as o3d
 from TreeToolML.utils.tictoc import bench_dict
+from TreeToolML.Libraries.open3dvis import open3dpaint
 
 sys.path.append("/home/omar/Documents/Mine/Git/TreeTool")
 import TreeTool.seg_tree as seg_tree
@@ -33,11 +34,12 @@ def outliers(points, min_n=6, radius=0.4, organized=True):
 def combine_IOU(vis_dict):
     vis_dict_ = {n: i for n, i in enumerate(vis_dict)}
     discard_list = []
-    for key1, _points in vis_dict_.items():
+    ious = []
+    for key1, _points in list(vis_dict_.items()):
         if key1 in discard_list:
             continue
 
-        for key2, _points2 in vis_dict_.items():
+        for key2, _points2 in list(vis_dict_.items()):
             if key1 == key2:
                 continue
 
@@ -53,10 +55,12 @@ def combine_IOU(vis_dict):
             box1 = [min_xyz1[0], min_xyz1[1], max_xyz1[0], max_xyz1[1]]
             box2 = [min_xyz2[0], min_xyz2[1], max_xyz2[0], max_xyz2[1]]
             iou = bb_intersection_over_union(box1, box2)
-            if iou > 0.8:
+            ious.append(iou)
+            if iou > 0.2:
                 vis_dict_[key1] = np.vstack([vis_dict_[key1], vis_dict_[key2]])
+                vis_dict_.pop(key2)
                 discard_list.append(key2)
-    return vis_dict_
+    return list(vis_dict_.values())
 
 
 def data_preprocess(temp_point_set):
@@ -92,12 +96,14 @@ def get_train_val_set(trainingdata_path, val_rate=0.20):
             train_set.append(all_train_set[j])
     return train_set, val_set
 
+
 def normalize_2(sample_xyz):
     centerd_tree = sample_xyz - np.multiply(np.min(sample_xyz, 0), [0, 0, 1])
     centerd_tree = centerd_tree - np.multiply(np.mean(centerd_tree, axis=0), [1, 1, 0])
     # normalize into unit sphere
     centerd_tree /= np.max(np.linalg.norm(centerd_tree, axis=1))
     return centerd_tree
+
 
 def normalize(sample_xyz):
     min_xyz = np.min(sample_xyz, axis=0)
@@ -222,11 +228,11 @@ def get_center_scale(sample_xyz):
 
 
 def normal_filter(
-    subject_cloud,
-    search_radius=0.05,
-    verticality_threshold=0.3,
-    curvature_threshold=0.3,
-    return_indexes=False,
+        subject_cloud,
+        search_radius=0.05,
+        verticality_threshold=0.3,
+        curvature_threshold=0.3,
+        return_indexes=False,
 ):
     bench_dict["normals"].gstep()
     non_ground_normals = seg_tree.extract_normals(subject_cloud, search_radius)
@@ -241,7 +247,7 @@ def normal_filter(
     # get mask by filtering verticality and curvature
     verticality = np.dot(non_nan_normals, [[0], [0], [1]])
     verticality_mask = (verticality < verticality_threshold) & (
-        -verticality_threshold < verticality
+            -verticality_threshold < verticality
     )
     curvature_mask = non_nan_curvature < curvature_threshold
     verticality_curvature_mask = verticality_mask.ravel() & curvature_mask.ravel()
@@ -259,12 +265,12 @@ def normal_filter(
 
 
 def seg_normals(
-    filtered_points,
-    search_radius=0.05,
-    normalweight=0.01,
-    miter=1000,
-    distance=0.01,
-    rlim=[0, 0.2],
+        filtered_points,
+        search_radius=0.05,
+        normalweight=0.01,
+        miter=1000,
+        distance=0.01,
+        rlim=[0, 0.2],
 ):
     indices, model = seg_tree.segment_normals(
         filtered_points,
@@ -290,7 +296,7 @@ def trunk_center(filtered_points):
 
 
 def group_trees(
-    filtered_points, tolerance=0.1, min_cluster_size=20, max_cluster_size=25000
+        filtered_points, tolerance=0.1, min_cluster_size=20, max_cluster_size=25000
 ):
     cluster_list = seg_tree.euclidean_cluster_extract(
         filtered_points,
@@ -302,13 +308,13 @@ def group_trees(
 
 
 def get_tree_center(
-    temp_xyz,
-    downsample_leaf=0.01,
-    search_radius=0.1,
-    verticality_threshold=0.4,
-    curvature_threshold=0.1,
-    return_filtered=False,
-    non_if_no_seg_center=False,
+        temp_xyz,
+        downsample_leaf=0.01,
+        search_radius=0.1,
+        verticality_threshold=0.4,
+        curvature_threshold=0.1,
+        return_filtered=False,
+        non_if_no_seg_center=False,
 ):
     bench_dict["get_centers"].gstep()
     down_points = downsample(temp_xyz, downsample_leaf, False)
