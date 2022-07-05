@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 # %%
 cfg = combine_cfgs("configs/experimentos_combine2/subconfigs/baseline.yaml", [])
 model_name = cfg.FILES.RESULT_FOLDER
-model_name = 'treetool'
+#model_name = 'treetool'
+model_name = 'distance_loss'
 if model_name != 'treetool':
     result_dir = os.path.join("results_benchmark", model_name)
     result_dir = find_model_dir(result_dir)
@@ -49,17 +50,18 @@ Fpoint_result_points = []
 Ipoint_result_points = []
 segmentation_result_points = []
 for plotx in dataresult_list[plotnumber].keys():
-    for ploty in  dataresult_list[plotnumber][plotx].keys():
-        center = dataresult_list[plotnumber][plotx][ploty]['center'] + np.random.random([1,3])/10
-        scale = dataresult_list[plotnumber][plotx][ploty]['scale']
-        OriginalPoints = dataresult_list[plotnumber][plotx][ploty]['Opoints']
-        FilterPoints = dataresult_list[plotnumber][plotx][ploty]["Fpoints"]
-        InputPoints = dataresult_list[plotnumber][plotx][ploty]["Ipoints"]
-        SegPoints = np.concatenate(dataresult_list[plotnumber][plotx][ploty]["segmentation"])
-        Opoint_result_points.append((OriginalPoints * scale) + center)
-        Fpoint_result_points.append((FilterPoints * scale) + center)
-        Ipoint_result_points.append((InputPoints * scale) + center)
-        segmentation_result_points.append((SegPoints * scale) + center)
+    if type(plotx) is int:
+        for ploty in dataresult_list[plotnumber][plotx].keys():
+            center = dataresult_list[plotnumber][plotx][ploty]['center'] + np.random.random([1,3])/10
+            scale = dataresult_list[plotnumber][plotx][ploty]['scale']
+            OriginalPoints = dataresult_list[plotnumber][plotx][ploty]['Opoints']
+            FilterPoints = dataresult_list[plotnumber][plotx][ploty]["Fpoints"]
+            InputPoints = dataresult_list[plotnumber][plotx][ploty]["Ipoints"]
+            SegPoints = np.concatenate(dataresult_list[plotnumber][plotx][ploty]["segmentation"])
+            Opoint_result_points.append((OriginalPoints * scale) + center)
+            Fpoint_result_points.append((FilterPoints * scale) + center)
+            Ipoint_result_points.append((InputPoints * scale) + center)
+            segmentation_result_points.append((SegPoints * scale) + center)
 # %%
 print('see true positives')
 tp_gt_trees = []
@@ -93,6 +95,12 @@ for record in confMat_list[plotnumber][2]:
         fn_found_trees.append(record['true_tree'])
         fn_found_trees_diams.append(record['true_model'][-1])
         fn_found_trees_pos.append(record['true_model'][:2])
+#%%
+
+open3dpaint(Opoint_result_points, pointsize=2) #how they enter
+open3dpaint(Fpoint_result_points, pointsize=2) #after filtering
+open3dpaint(Ipoint_result_points, pointsize=2) #input
+open3dpaint(segmentation_result_points + tp_gt_trees, pointsize=2) #output
 #%%
 open3dpaint(Opoint_result_points, pointsize=2) #how they enter
 open3dpaint(Fpoint_result_points + fn_found_trees, pointsize=2) #after filtering

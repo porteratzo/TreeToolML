@@ -93,13 +93,7 @@ def main(args):
                 badd_trees.append(centered_tree)
         print("orig tree number", len(saved_trees))
         """
-        sidexsidepaint(
-            saved_trees,
-            visualization_cylinders,
-            [utils.makesphere(i, 0.1) for i in saved_centers],
-            pointsize=2,
-            axis=1,
-        )
+        
         sidexsidepaint(
             saved_filtered,
             visualization_cylinders,
@@ -108,6 +102,13 @@ def main(args):
             axis=1,
         )
         """
+        sidexsidepaint(
+            saved_trees,
+            visualization_cylinders,
+            [utils.makesphere(i, 0.1) for i in saved_centers],
+            pointsize=2,
+            axis=1,
+        )
         sidexsidepaint(badd_trees, pointsize=2, axis=1)
 
         all_datasets["cloud"].extend(saved_trees)

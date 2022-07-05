@@ -87,7 +87,7 @@ def main(args):
     datapath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
 
     test_path = os.path.join(datapath, "testing_data")
-    generator_val = tree_dataset_cloud(test_path, cfg.TRAIN.N_POINTS, normal_filter=True, distances=cfg.TRAIN.DISTANCE)
+    generator_val = tree_dataset_cloud(test_path, cfg.TRAIN.N_POINTS, normal_filter=True, distances=1)
 
     test_loader = DataLoader(
         generator_val, cfg.TRAIN.BATCH_SIZE, shuffle=True, num_workers=1

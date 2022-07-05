@@ -1,0 +1,4 @@
+_BASE_: ../baseline.yaml
+
+TRAIN:
+  MODEL_NAME: 'RRFSegNet'

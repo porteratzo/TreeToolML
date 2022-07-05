@@ -78,6 +78,7 @@ def main(args):
 
     EvaluationMetrics = make_metrics_dict()
     visualize = False
+    #visualize = True
 
     confMat_list = []
     result_list = []

@@ -13,11 +13,10 @@ def distance_loss(pre_direction, gt_direction, sigma=0.955):
     '''
     Error Slack-based Direction Loss
     '''
+    pre_direction = pre_direction.permute(0, 2, 1)
     if (pre_direction.shape[2]>3) and (gt_direction.shape[2]>3):
-        pre_direction = pre_direction.permute(0, 2, 1)
         _gt_direction = gt_direction[:, :, 3]
         _pre_direction = pre_direction[:, :, 3]
-
         loss = torch.mean(torch.abs(_gt_direction - _pre_direction))
     else:
         loss = torch.ones(1)
@@ -34,7 +33,7 @@ def slack_based_direction_loss(pre_direction, gt_direction, sigma=0.955, use_dis
 
     if use_distance:
         loss = sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction) * torch.unsqueeze(
-            torch.clamp(1 - gt_direction[:, :, 3], 0, 1), -1), dim=2)
+            1-torch.clamp(gt_direction[:, :, 3]*4, 0, 1), -1), dim=2)
     else:
         loss = sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction), dim=2)
     tmp = torch.zeros_like(loss)

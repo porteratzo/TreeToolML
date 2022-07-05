@@ -1,4 +1,4 @@
-_BASE_: ../baseline.yaml
+_BASE_: ../_baseline.yaml
 
 TRAIN:
   MODEL_NAME: 'trunks'
