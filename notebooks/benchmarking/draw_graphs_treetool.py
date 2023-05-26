@@ -3,15 +3,13 @@ import sys
 
 #sys.path.append("../..")
 import os
-sys.path.append(".")
-sys.path.append("/home/omar/Documents/mine/TreeTool")
 import numpy as np
-from TreeToolML.utils.default_parser import default_argument_parser
-from TreeToolML.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, load_eval_results, make_benchmark_metrics
+from treetoolml.utils.default_parser import default_argument_parser
+from treetoolml.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, load_eval_results, make_benchmark_metrics
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.utils.file_tracability import find_model_dir
+from treetoolml.config.config import combine_cfgs
+from treetoolml.utils.file_tracability import find_model_dir
 
 def main():
     result_dir = os.path.join("results_benchmark", 'treetool')

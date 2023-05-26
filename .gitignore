@@ -138,3 +138,5 @@ dmypy.json
 performance_*
 /results_training
 /results_benchmark
+/.idea
+misc_data

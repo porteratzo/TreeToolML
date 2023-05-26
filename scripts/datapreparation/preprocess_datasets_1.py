@@ -1,10 +1,7 @@
-import sys
-sys.path.append('.')
-sys.path.append('/home/omar/Documents/mine/TreeTool')
-from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
-from TreeToolML.data.data_gen_utils.dataloaders import save_cloud
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.utils.default_parser import default_argument_parser
+from treetoolml.data.data_gen_utils.all_dataloader import all_data_loader
+from treetoolml.data.data_gen_utils.dataloaders import save_cloud
+from treetoolml.config.config import combine_cfgs
+from treetoolml.utils.default_parser import default_argument_parser
 from tqdm import tqdm
 import copy
 import os

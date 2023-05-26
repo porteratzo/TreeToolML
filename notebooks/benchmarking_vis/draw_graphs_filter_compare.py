@@ -1,28 +1,22 @@
 # %%
-import sys
-
-sys.path.append("../..")
 import os
-
-sys.path.append(".")
-sys.path.append("/home/omar/Documents/mine/TreeTool")
 import numpy as np
-from TreeToolML.utils.default_parser import default_argument_parser
-from TreeToolML.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, load_eval_results, \
+from treetoolml.benchmark.benchmark_utils import load_eval_results, \
     make_benchmark_metrics
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.utils.file_tracability import find_model_dir
+from treetoolml.utils.file_tracability import find_model_dir
 
 # %%
-models_multi = []
-#models_multi.extend(['baseline_no_IOU', 'baseline_no_stem', 'baseline_no_stem_iou'])
-#models_multi.extend(['baseline', 'baseline_smaller_window_4', 'baseline_smaller_window_6', 'baseline_smaller_window_10'])
-#models_multi.extend(['trunks', 'distance', 'distance_loss'])
-#models_multi.extend(['distance_loss', 'distance_loss_001', 'distance_loss_005'])
-#models_multi.extend(['distance_loss','RRFSegNet'])
-models_multi.extend(['distance_loss'])
+#get evaluation metrics
+
+models_multi = set()
+#models_multi.update(['baseline_no_IOU', 'baseline_no_stem', 'baseline_no_stem_iou', 'baseline_group_stems'])
+#models_multi.update(['baseline', 'baseline_smaller_window_4', 'baseline_smaller_window_6', 'baseline_smaller_window_10'])
+#models_multi.update(['trunks', 'distance', 'distance_loss',])
+models_multi.update(['distance_loss', 'distance_loss_distance_filter_001', 'distance_loss_distance_filter_005'])
+#models_multi.update(['distance_loss','RRFSegNet'])
+#models_multi.update(['distance_loss'])
 metrics = {}
 BenchmarkMetrics, Methods = make_benchmark_metrics()
 for model in list(models_multi):
@@ -34,124 +28,55 @@ for model in list(models_multi):
         metrics[model] = EvaluationMetrics
     else:
         print(model, 'not found')
+    
 
 # %%
-alldata = ["Completeness", "Correctness"]
+#get Completeness graph 
+
+alldata = ["Completeness","Correctness","Location_RMSE", "Diameter_RMSE"]
 dificulties = ["easy", "medium", "hard"]
-plt.figure(figsize=(16, 30))
+scale = 4
 from collections import defaultdict
 import pandas as pd
 results = defaultdict(dict)
-for n, i in enumerate(alldata):
-    for n2 in range(3):
-        plt.subplot(6, 1, n * 3 + n2 + 1)
-        plt.title(i + " " + dificulties[n2])
+for plot_number, metric_name in enumerate(alldata):
+    plt.figure(figsize=(14*scale, 10*scale))
+    for dificulty_n in range(3):
+        plt.subplot(3, 1, dificulty_n + 1)
+        plt.title(metric_name + " " + dificulties[dificulty_n])
         mine = {}
         for m in models_multi:
             if  m == 'distance_loss':
                 _m = 'TreeToolML'
             else:
                 _m = m
-            mine[_m] = np.mean(metrics[m][i][slice(n2, n2 + 2)]) * 100
-            results[i + '_' +  dificulties[n2]][m] = mine[_m] / 100
+            mine[_m] = np.mean(metrics[m][metric_name][slice(dificulty_n, dificulty_n + 2)]) * 100
+            results[metric_name + '_' +  dificulties[dificulty_n]][m] = mine[_m] / 100
         colors = [np.array(cm.gist_rainbow(i)) * 0.3 if n < len(Methods) - 1 else cm.gist_rainbow(i) for
                   n, i in enumerate(np.linspace(0, 1, len(Methods) + len(models_multi)))]
         sortstuff = sorted(
             zip(
                 Methods + list(mine.keys()),
-                BenchmarkMetrics[i][n2] + list(mine.values()),
+                BenchmarkMetrics[metric_name][dificulty_n] + list(mine.values()),
                 colors,
             ),
             key=lambda x: x[1],
         )
+        if plot_number > 1:
+            sortstuff = sortstuff[::-1]
         sortmethods = [i[0] for i in sortstuff]
         sortnum = [i[1] for i in sortstuff]
         sortcol = [i[2] for i in sortstuff]
         # plt.bar(np.arange(len(BenchmarkMetrics[i][n2])+1),BenchmarkMetrics[i][n2]+[mine])
-        plt.bar(sortmethods, sortnum, color=sortcol, width=0.2)
+        plt.bar(sortmethods, sortnum, color=sortcol, width=0.4)
         plt.tight_layout(pad=3.0)
-        plt.xticks(rotation=30, fontsize=18)
+        plt.xticks(rotation=-65, fontsize=18)
         plt.grid(axis="y")
-plt.savefig(f'fig1.jpg',bbox_inches='tight', dpi=400)
-plt.show()
+        if plot_number < 2:
+            plt.yticks(np.arange(0,100,10))
+        else:
+            plt.yticks(np.linspace(0,np.max(sortnum),8))
+    plt.savefig(f'{metric_name}.jpg',bbox_inches='tight', dpi=400)
+    plt.show()
 
-
-#%%
 # %%
-
-alldata = ["Location_RMSE", "Diameter_RMSE"]
-dificulties = ["easy", "medium", "hard"]
-plt.figure(figsize=(16, 38))
-for n, i in enumerate(alldata):
-    for n2 in range(3):
-        plt.subplot(6, 1, n * 3 + n2 + 1)
-        plt.title(i + " " + dificulties[n2])
-        mine = {}
-        for m in models_multi:
-            if  m == 'distance_loss':
-                _m = 'TreeToolML'
-            else:
-                _m = m
-            mine[_m] = np.mean(metrics[m][i][slice(n2, n2 + 2)]) * 100
-            results[i + '_' +  dificulties[n2]][m] = mine[_m] / 100
-        colors = [np.array(cm.gist_rainbow(i)) * 0.3 if n < len(Methods) - 1 else cm.gist_rainbow(i) for
-                  n, i in enumerate(np.linspace(0, 1, len(Methods) + len(models_multi)))]
-        sortstuff = sorted(
-            zip(
-                Methods + list(mine.keys()),
-                BenchmarkMetrics[i][n2] + list(mine.values()),
-                colors,
-            ),
-            key=lambda x: x[1],
-        )
-        sortmethods = [i[0] for i in sortstuff]
-        sortnum = [i[1] for i in sortstuff]
-        sortcol = [i[2] for i in sortstuff]
-        plt.bar(sortmethods, sortnum, color=sortcol, width=0.2)
-        plt.tight_layout(pad=10.0)
-        plt.grid(axis="y")
-        plt.xticks(rotation=45, fontsize=18)
-plt.savefig(f'fig2.jpg', bbox_inches='tight',dpi=400)
-plt.show()
-#%%
-pd.DataFrame().from_dict(results).transpose().to_clipboard()
-#
-# %%
-alldata = ["Completeness", "Correctness"]
-alldata += ["Location_RMSE", "Diameter_RMSE"]
-dificulties = ["easy", "medium", "hard"]
-plt.figure(figsize=(16, 30))
-from collections import defaultdict
-results = defaultdict(dict)
-for n, i in enumerate(alldata):
-    for n2 in range(3):
-        plt.subplot(12, 1, n * 3 + n2 + 1)
-        plt.title(i + " " + dificulties[n2])
-        mine = {}
-        for m in models_multi:
-            if  m == 'distance_loss':
-                _m = 'TreeToolML'
-            else:
-                _m = m
-            mine[_m] = np.mean(metrics[m][i][slice(n2, n2 + 2)]) * 100
-            results[i + '_' +  dificulties[n2]][m] = mine[_m] / 100
-        colors = [np.array(cm.gist_rainbow(i)) * 0.3 if n < len(Methods) - 1 else cm.gist_rainbow(i) for
-                  n, i in enumerate(np.linspace(0, 1, len(Methods) + len(models_multi)))]
-        sortstuff = sorted(
-            zip(
-                Methods + list(mine.keys()),
-                BenchmarkMetrics[i][n2] + list(mine.values()),
-                colors,
-            ),
-            key=lambda x: x[1],
-        )
-        sortmethods = [i[0] for i in sortstuff]
-        sortnum = [i[1] for i in sortstuff]
-        sortcol = [i[2] for i in sortstuff]
-        # plt.bar(np.arange(len(BenchmarkMetrics[i][n2])+1),BenchmarkMetrics[i][n2]+[mine])
-        plt.bar(sortmethods, sortnum, color=sortcol, width=0.2)
-        plt.tight_layout(pad=3.0)
-        plt.xticks(rotation=30, fontsize=18)
-        plt.grid(axis="y")
-plt.savefig(f'big.jpg',bbox_inches='tight', dpi=400)
-plt.show()

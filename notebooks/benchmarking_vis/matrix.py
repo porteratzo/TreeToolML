@@ -20,17 +20,17 @@ import pclpy
 import torch
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
-from TreeToolML.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.IndividualTreeExtraction.center_detection.center_detection import (
+from treetoolml.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results
+from treetoolml.config.config import combine_cfgs
+from treetoolml.IndividualTreeExtraction.center_detection.center_detection import (
     center_detection,
 )
-from TreeToolML.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import (
+from treetoolml.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import (
     prediction,
 )
-from TreeToolML.model.build_model import build_model
-from TreeToolML.utils.file_tracability import find_model_dir, get_checkpoint_file
-from TreeToolML.utils.py_util import (
+from treetoolml.model.build_model import build_model
+from treetoolml.utils.file_tracability import find_model_dir, get_checkpoint_file
+from treetoolml.utils.py_util import (
     bb_intersection_over_union,
     combine_IOU,
     data_preprocess,
@@ -38,7 +38,7 @@ from TreeToolML.utils.py_util import (
     makesphere,
     shuffle_data,
 )
-from TreeToolML.Libraries.open3dvis import open3dpaint
+from treetoolml.Libraries.open3dvis import open3dpaint
 
 # %%
 cfg = combine_cfgs("configs/datasets/trunks.yaml", [])

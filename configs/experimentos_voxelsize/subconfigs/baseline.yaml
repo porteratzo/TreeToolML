@@ -1,9 +1,0 @@
-_BASE_: ../datasets/trunks.yaml
-
-TRAIN:
-  MODEL_NAME: 'trunks'
-
-BENCHMARKING:
-  COMBINE_STEMS: 1
-  COMBINE_IOU: 0
-  WINDOW_STRIDE: 8

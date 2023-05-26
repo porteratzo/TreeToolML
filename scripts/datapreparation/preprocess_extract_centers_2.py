@@ -3,20 +3,21 @@ import enum
 import sys
 import os
 
-sys.path.append(".")
-sys.path.append("/home/omar/Documents/mine/TreeTool")
-import TreeToolML.utils.py_util as py_util
+import treetoolml.utils.py_util as py_util
 
 
-import TreeTool.utils as utils
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.utils.default_parser import default_argument_parser
-from TreeToolML.data.data_gen_utils.all_dataloader import all_data_loader
+import treetool.utils as utils
+from treetoolml.config.config import combine_cfgs
+from treetoolml.utils.default_parser import default_argument_parser
+from treetoolml.data.data_gen_utils.all_dataloader import all_data_loader
 import numpy as np
 from tqdm import tqdm
 import pickle
 from torch.utils.data import Dataset
-from TreeToolML.Libraries.open3dvis import open3dpaint, sidexsidepaint
+from treetoolml.Libraries.open3dvis import open3dpaint, sidexsidepaint
+from treetoolml.data.data_gen_utils.dataloaders import (
+        save_cloud,
+    )
 
 ######################
 # Extra processing for Paris_lille dataset to remove bad trees
@@ -31,67 +32,14 @@ def main(args):
         onlyTrees=False, preprocess=False, default=False, train_split=True
     )
 
+    centered_datasets = defaultdict(list)
     all_datasets = defaultdict(list)
-
+    
     loader.load_all("datasets/custom_data/preprocessed")
-    for dataset_loader in tqdm(loader.tree_list):
-        saved_trees = []
-        saved_centers = []
-        saved_models = []
-        saved_filtered = []
-        visualization_cylinders = []
-        badd_trees = []
-        all_trees = dataset_loader.get_trees()
-        out_trees = []
-        for temp_index_object_xyz in all_trees:
-            out_tree = py_util.outliers(temp_index_object_xyz, 100, 10)
-            norm_tree = py_util.normalize_2(out_tree)
-            down_points = py_util.downsample(norm_tree, 0.005)
-            out_trees.append(down_points)
-
-        print("orig tree number", len(all_trees))
-        for centered_tree in out_trees:
-            filtered_points = py_util.normal_filter(centered_tree, 0.04, 0.4, 0.1)
-            if len(filtered_points) == 0:
-                continue
-            tree_groups = py_util.group_trees(filtered_points, 0.1, 100)
-            max_points = 0
-            for single_tree in tree_groups:
-                index, model = py_util.seg_normals(
-                    single_tree,
-                    0.04,
-                    0.000001,
-                    distance=0.01,
-                    rlim=[0, 0.05],
-                )
-                if max_points < len(single_tree[index]):
-                    max_points = len(single_tree[index])
-                    if (
-                        abs(np.dot(model[3:6], [0, 0, 1]) / np.linalg.norm(model[3:6]))
-                        > 0.5
-                    ):
-                        model = np.array(model)
-                        Z = 0.2
-                        Y = model[1] + model[4] * (Z - model[2]) / model[5]
-                        X = model[0] + model[3] * (Z - model[2]) / model[5]
-                        model[0:3] = np.array([X, Y, Z])
-                        # make sure the vector is pointing upward
-
-                        model[3:6] = utils.similarize(model[3:6], [0, 0, 1])
-                        best_model = model
-                        best_cylinder = utils.makecylinder(
-                            model=model, height=1, density=30
-                        )
-            if max_points / len(filtered_points) > 0.4:
-                print(max_points / len(filtered_points))
-                saved_trees.append(centered_tree)
-                saved_centers.append(best_model[:3])
-                saved_models.append(best_model)
-                saved_filtered.append(filtered_points)
-                visualization_cylinders.append(best_cylinder)
-            else:
-                badd_trees.append(centered_tree)
-        print("orig tree number", len(saved_trees))
+    for dataset_loader in tqdm(loader.dataset_list):
+        good_trees, all_trees = get_tree_data(dataset_loader)
+        saved_trees, saved_centers, saved_models, saved_filtered, visualization_cylinders = good_trees
+        all_saved_trees, all_saved_centers, all_saved_models, all_saved_filtered, all_visualization_cylinders = all_trees
         """
         
         sidexsidepaint(
@@ -101,34 +49,102 @@ def main(args):
             pointsize=2,
             axis=1,
         )
-        """
+        
         sidexsidepaint(
             saved_trees,
             visualization_cylinders,
             [utils.makesphere(i, 0.1) for i in saved_centers],
             pointsize=2,
             axis=1,
+            for_thesis=True
         )
-        sidexsidepaint(badd_trees, pointsize=2, axis=1)
+        sidexsidepaint(badd_trees, pointsize=2, axis=1, for_thesis=True)
+        """
+        centered_datasets["cloud"].extend(saved_trees)
+        centered_datasets["centers"].extend(saved_centers)
+        centered_datasets["filtered"].extend(saved_filtered)
+        centered_datasets["cylinders"].extend(visualization_cylinders)
+        centered_datasets["models"].extend(saved_models)
 
-        all_datasets["cloud"].extend(saved_trees)
-        all_datasets["centers"].extend(saved_centers)
-        all_datasets["filtered"].extend(saved_filtered)
-        all_datasets["cylinders"].extend(visualization_cylinders)
-        all_datasets["models"].extend(saved_models)
+    save_datasets(centered_datasets)
 
+def get_tree_data(dataset_loader):
+
+    saved_trees = []
+    saved_centers = []
+    saved_models = []
+    saved_filtered = []
+    visualization_cylinders = []
+
+    all_saved_trees = []
+    all_saved_centers = []
+    all_saved_models = []
+    all_saved_filtered = []
+    all_visualization_cylinders = []
+    all_trees = dataset_loader.get_trees()
+    print("orig tree number", len(all_trees))
+    for temp_index_object_xyz in tqdm(all_trees):
+        out_tree = py_util.outliers(temp_index_object_xyz, 100, 10)
+        norm_tree = py_util.normalize_2(out_tree)
+        down_points = py_util.downsample(norm_tree, 0.005)
+        centered_tree = down_points
+        filtered_points = py_util.normal_filter(centered_tree, 0.04, 0.4, 0.1)
+        if len(filtered_points) == 0:
+            continue
+        tree_groups = py_util.group_trees(filtered_points, 0.1, 100)
+        max_points = 0
+        for single_tree in tree_groups:
+            index, model = py_util.seg_normals(
+                    single_tree,
+                    0.04,
+                    0.000001,
+                    distance=0.01,
+                    rlim=[0, 0.05],
+                )
+            if max_points < len(single_tree[index]):
+                max_points = len(single_tree[index])
+                if (
+                        abs(np.dot(model[3:6], [0, 0, 1]) / np.linalg.norm(model[3:6]))
+                        > 0.5
+                    ):
+                    model = np.array(model)
+                    Z = 0.2
+                    Y = model[1] + model[4] * (Z - model[2]) / model[5]
+                    X = model[0] + model[3] * (Z - model[2]) / model[5]
+                    model[0:3] = np.array([X, Y, Z])
+                        # make sure the vector is pointing upward
+
+                    model[3:6] = utils.similarize(model[3:6], [0, 0, 1])
+                    best_model = model
+                    best_cylinder = utils.makecylinder(
+                            model=model, height=1, density=30
+                        )
+        if max_points / len(filtered_points) > 0.4:
+            print(max_points / len(filtered_points))
+            saved_trees.append(centered_tree)
+            saved_centers.append(best_model[:3])
+            saved_models.append(best_model)
+            saved_filtered.append(filtered_points)
+            visualization_cylinders.append(best_cylinder)
+        all_saved_trees.append(centered_tree)
+        all_saved_centers.append(best_model[:3])
+        all_saved_models.append(best_model)
+        all_saved_filtered.append(filtered_points)
+        all_visualization_cylinders.append(best_cylinder)
+    print("orig tree number", len(saved_trees))
+    return [saved_trees,saved_centers,saved_models,saved_filtered,visualization_cylinders], [all_saved_trees,all_saved_centers,all_saved_models,all_saved_filtered,all_visualization_cylinders]
+
+def save_datasets(all_datasets, centered=True):
     point_cloud = np.vstack(all_datasets["cloud"])
     instances = np.hstack(
         [np.ones(len(tree)) * n for n, tree in enumerate(all_datasets["cloud"])]
     )
     labels = np.ones(len(point_cloud))
 
-    from TreeToolML.data.data_gen_utils.dataloaders import (
-        save_cloud,
-        save_cloud_filtered,
-    )
-
-    data_path = "datasets/custom_data/full_cloud/"
+    if centered:
+        data_path = "datasets/custom_data/full_cloud/"
+    else:
+        data_path = "datasets/custom_data/orig_full_cloud/"
     os.makedirs(data_path, exist_ok=True)
 
     save_cloud(

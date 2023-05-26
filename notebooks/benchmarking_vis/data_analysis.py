@@ -5,10 +5,10 @@ sys.path.append("/home/omar/Documents/mine/IndividualTreeExtraction/voxel_region
 import TreeTool.seg_tree as seg_tree
 import numpy as np
 import pclpy
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.utils.file_tracability import find_model_dir
-from TreeToolML.Libraries.open3dvis import open3dpaint
-from TreeToolML.utils.benchmark_util import make_metrics_dict
+from treetoolml.config.config import combine_cfgs
+from treetoolml.utils.file_tracability import find_model_dir
+from treetoolml.Libraries.open3dvis import open3dpaint
+from treetoolml.utils.benchmark_util import make_metrics_dict
 import pickle
 import matplotlib.pyplot as plt
 

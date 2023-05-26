@@ -54,7 +54,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--cfg",
-                "configs/RRFSegNet.yaml",
+                "configs/datasets/trunks.yaml",
                 "--amp",
                 "0",
                 "--device",
@@ -78,11 +78,12 @@
             "name": "Python: bench",
             "type": "python",
             "request": "launch",
-            "program": "notebooks/benchmarking/benchmark_filter.py",
+            "program": "notebooks/benchmarking/benchmark_treetoolml.py",
             "console": "integratedTerminal",
             "args": [
                 "--cfg",
-                "configs/experimentos_voxelsize/subconfigs/baseline_small.yaml",
+                //"configs/experimentos_voxelsize/subconfigs/baseline_small.yaml",
+                "configs/experimentos_combine/subconfigs/baseline_group_stems.yaml",
             ]
         }
     ]

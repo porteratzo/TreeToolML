@@ -1,30 +1,17 @@
-from logging import exception
 import os
-from pickletools import optimize
-import sys
 
-sys.path.append(".")
-sys.path.append("/home/omar/Documents/mine/TreeTool")
 import os
-import sys
 
 import torch
-from TreeToolML.utils.tictoc import bench_dict, g_timer1
-import TreeToolML.layers.Loss_torch as Loss_torch
-import TreeToolML.utils.py_util as py_util
-from torch.optim import Adam, lr_scheduler
+from treetoolml.utils.tictoc import bench_dict, g_timer1
+import treetoolml.layers.Loss_torch as Loss_torch
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torchsummary import summary
 from tqdm import tqdm
-from TreeToolML.config.config import combine_cfgs
-from TreeToolML.data.BatchSampleGenerator_torch import tree_dataset, tree_dataset_cloud
-from TreeToolML.model.build_model import build_model
-from TreeToolML.utils.default_parser import default_argument_parser
-from TreeToolML.utils.file_tracability import get_model_dir
-import traceback
-from TreeToolML.Libraries.open3dvis import open3dpaint_sphere
-from TreeToolML.utils.file_tracability import get_model_dir, get_checkpoint_file, find_model_dir
+from treetoolml.config.config import combine_cfgs
+from treetoolml.data.BatchSampleGenerator_torch import tree_dataset_cloud
+from treetoolml.model.build_model import build_model
+from treetoolml.utils.default_parser import default_argument_parser
+from treetoolml.utils.file_tracability import get_checkpoint_file, find_model_dir
 import pandas as pd
 torch.backends.cudnn.benchmark = True
 
