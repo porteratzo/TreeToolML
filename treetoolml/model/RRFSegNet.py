@@ -50,6 +50,12 @@ class relation_reasoning_layers(nn.Module):
 def pairwise_distance(point_cloud):
     return torch.cdist(point_cloud, point_cloud) ** 2
 
+def pairwise_distance_opt(point_cloud):
+    point_cloud_transpose = point_cloud.transpose(1, 2)
+    pairwise_distances = torch.sum(point_cloud**2, dim=2, keepdim=True) - 2 * torch.matmul(point_cloud, point_cloud_transpose) + torch.sum(point_cloud_transpose**2, dim=1, keepdim=True)
+    pairwise_distances = pairwise_distances.clamp_min(0)  
+    return pairwise_distances
+
 
 def knn(adj_matrix, k=5):
     neg_adj = -adj_matrix
@@ -70,13 +76,23 @@ def get_relation_features(point_features, nn_idx, k):
 
     # get neigbors from nn_idx
     point_cloud_central = point_features
-    point_cloud_neighbors = point_features[torch.arange(batch_size)[:,None,None,None],torch.arange(channels)[None,:,None,None],nn_idx[:,None,:,:]]
+    #point_cloud_neighbors = point_features[torch.arange(batch_size)[:,None,None,None],torch.arange(channels)[None,:,None,None],nn_idx[:,None,:,:]]
+    ## faster
+    point_cloud_neighbors = torch.gather(point_features.unsqueeze(2).repeat(1,1,k,1), 3,nn_idx.unsqueeze(1).repeat(1,channels,1,1))
+    #point_cloud_neighbors = point_features[:, :, nn_idx.view(batch_size, -1)].transpose(1, 2).view(batch_size, channels, k, -1)
+
     point_cloud_central = torch.unsqueeze(point_cloud_central, dim=-2)
+
+    
 
     #get neigbors relative to point
     point_cloud_central = point_cloud_central.repeat(1, 1, k, 1)
     point_cloud_neighbors = point_cloud_neighbors - point_cloud_central
 
+
+    nn_idx.unsqueeze(1).repeat(1,3,1,1).shape
+    point_features.unsqueeze(2).repeat(1,1,20,1)
+    point_features.shape
 
     num_vertex_pairs = k
     vertex_pairs_list = [(i, i + 1) for i in range(k - 1)]
@@ -102,6 +118,7 @@ def get_relation_features(point_features, nn_idx, k):
     relation_features = torch.cat([point_features, relation_features], dim=1)
     return relation_features
 
+
 @ARCH_REGISTRY.register("RRFSegNet")
 class get_model_RRFSegNet(nn.Module):
     def __init__(self, MODEL_CFG):
@@ -117,22 +134,23 @@ class get_model_RRFSegNet(nn.Module):
             nn.Conv2d(64, MODEL_CFG.OUTPUT_NODS, kernel_size=[1, 1], stride=[1, 1], padding=0),
             nn.BatchNorm2d(MODEL_CFG.OUTPUT_NODS, affine=False),
         )
+        
+        
 
     def forward(self, x):
         points = x
         num_point = points.shape[1]
         Position = points[:, :, :3]
+        #faster aproximation
         adj = pairwise_distance(Position)
+        #adj = pairwise_distance_opt(Position)
         nn_idx = knn(adj, k=20)
-
         points = points.permute(0,2,1)
         nn_idx = nn_idx.permute(0,2,1)
         relation_features1 = get_relation_features(points, nn_idx=nn_idx, k=20)
         out_net1 = self.net_1(relation_features1)
-
         relation_features2 = get_relation_features(out_net1, nn_idx=nn_idx, k=20)
         out_net2 = self.net_2(relation_features2)
-
         global_net_in = torch.cat([out_net1, out_net2], dim=1)
         global_net_out = self.global_net(global_net_in)
         global_net, _ = torch.max(global_net_out, dim=-1, keepdim=True)

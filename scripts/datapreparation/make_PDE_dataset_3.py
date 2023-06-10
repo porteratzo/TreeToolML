@@ -2,10 +2,7 @@
 import pclpy
 import open3d as o3d
 from json import load
-import sys
 
-sys.path.append(".")
-sys.path.append('/home/omar/Documents/mine/TreeTool')
 from treetoolml.config.config import combine_cfgs
 from treetoolml.utils.default_parser import default_argument_parser
 from treetoolml.data.data_gen_utils.all_dataloader import all_data_loader
@@ -17,6 +14,8 @@ from torch.utils.data import DataLoader
 import os
 from treetoolml.utils.tictoc import bench_dict
 from treetoolml.Libraries.open3dvis import open3dpaint
+from treetoolml.utils.vis_utils import vis_trees_centers
+from shutil import rmtree
 
 bench_dict.disable()
 
@@ -38,10 +37,12 @@ class make_dataset_loader(Dataset):
                 max_trees=self.cfg.DATA_CREATION.AUGMENTATION.MAX_TREES,
                 translation_xy=self.cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_XY,
                 translation_z=self.cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_Z,
-                scale=self.cfg.DATA_CREATION.AUGMENTATION.SCALE,
+                min_height=self.cfg.DATA_CREATION.AUGMENTATION.MIN_HEIGHT,
+                max_height=self.cfg.DATA_CREATION.AUGMENTATION.MAX_HEIGHT,
                 xy_rotation=self.cfg.DATA_CREATION.AUGMENTATION.XY_ROTATION,
                 dist_between=self.cfg.DATA_CREATION.AUGMENTATION.MIN_DIST_BETWEEN,
                 do_normalize=self.cfg.DATA_CREATION.AUGMENTATION.DO_NORMALIZE,
+                center_method=self.cfg.DATA_CREATION.CENTER_METHOD,
             )
             cluster, labels, centers = (
                 [i.astype(np.float16) for i in cluster],
@@ -55,6 +56,7 @@ class make_dataset_loader(Dataset):
                 break
             else:
                 print("too small")
+                
         return array, [centers]
 
 
@@ -65,10 +67,15 @@ def main(args):
     loader = all_data_loader_cloud(
         onlyTrees=False, preprocess=False, default=False, train_split=True
     )
-
-    loader.load_all("datasets/custom_data/full_cloud")
+    if cfg.DATA_CREATION.USE_CENTER_FILTERED:
+        loader.load_all("datasets/custom_data/full_cloud")
+    else:
+        loader.load_all("datasets/custom_data/orig_full_cloud")
     savepath = os.path.join(cfg.FILES.DATA_SET, cfg.FILES.DATA_WORK_FOLDER)
     if not os.path.isdir(savepath):
+        os.mkdir(savepath)
+    else:
+        rmtree(savepath)
         os.mkdir(savepath)
 
     savepathtrain = os.path.join(savepath, "training_data")
@@ -92,7 +99,7 @@ def main(args):
     paths = [savepathtrain, savepathtest, savepathval]
     for amount, path in zip(amounts, paths):
         generator = DataLoader(
-            make_dataset_loader(loader, cfg, amount), num_workers=4, batch_size=1
+            make_dataset_loader(loader, cfg, amount), num_workers=1, batch_size=1
         )
         try:
             for i, (array, centers) in enumerate(tqdm(generator)):

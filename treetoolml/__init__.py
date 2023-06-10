@@ -1,5 +1,6 @@
 import os
 import sys
+from treetoolml.utils.vis_utils import vis_trees_centers
 
 # Get the current directory of the __init__.py file
 current_dir = os.path.dirname(os.path.abspath(__file__))

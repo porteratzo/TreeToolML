@@ -35,15 +35,39 @@
             "justMyCode": true,
             "args": [
                 "--cfg",
-                "configs/datasets/trunks.yaml",
+                "configs/experimentos_model/subconfigs/distance_out_loss.yaml",
+                "--amp",
+                "1",
+                "--resume",
+                "1",
+                "--device",
+                "gpu",
+                "TRAIN.BATCH_SIZE",
+                "10",
+                "VALIDATION.BATCH_SIZE",
+                "10",
+                "TRAIN.EPOCHS", "150"
+            ]
+        },
+        {
+            "name": "Python: Test",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/PDE_test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--cfg",
+                //"configs/datasets/trunks.yaml",
+                "configs/experimentos_model/subconfigs/distance_out.yaml",
                 "--amp",
                 "1",
                 "--device",
                 "gpu",
                 "TRAIN.BATCH_SIZE",
-                "6",
+                "8",
                 "VALIDATION.BATCH_SIZE",
-                "6"
+                "8"
             ]
         },
         {
@@ -67,7 +91,7 @@
             "name": "Python: make",
             "type": "python",
             "request": "launch",
-            "program": "scripts/datapreparation/make_PDE_dataset.py",
+            "program": "scripts/datapreparation/make_PDE_dataset_3.py",
             "console": "integratedTerminal",
             "args": [
                 "--cfg",

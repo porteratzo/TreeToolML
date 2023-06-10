@@ -68,15 +68,16 @@ class all_data_loader_cloud:
         split=None,
         translation_xy=4,
         translation_z=0.2,
-        scale=0.2,
+        min_height = 2,
+        max_height = 8,
         xy_rotation=0,
         dist_between=3,
         do_normalize=False,
         zero_floor = True,
+        center_method = 0
     ):
         bench_dict['get cluster'].gstep()
         number_of_trees = np.random.randint(1, max_trees + 1)
-        scale = scale
         xyrotmin = -np.deg2rad(xy_rotation)
         xyrotmax = np.deg2rad(xy_rotation)
         cluster = []
@@ -112,7 +113,7 @@ class all_data_loader_cloud:
                     break
             bench_dict['get cluster'].step('tras')
 
-            scaler = 1 + scale * (np.random.rand() - 0.5)
+            scaler = np.random.uniform(min_height, max_height)
             rt = np.eye(4)
             rt[:3, 3] = translation
             rt[:3, :3] = scaler * R
@@ -123,7 +124,10 @@ class all_data_loader_cloud:
             bench_dict['get cluster'].step('transform')
             cluster.append(new_tree)
             cluster_center.append(translation)
-            centers.append(new_center)
+            if center_method:
+                centers.append(new_center)
+            else:
+                centers.append(np.mean(new_tree,axis=0))
             bench_dict['get cluster'].step('append')
 
         labels = [n * np.ones_like(i[:, :1]) for n, i in enumerate(cluster)]

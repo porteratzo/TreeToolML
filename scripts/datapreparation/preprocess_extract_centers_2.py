@@ -24,9 +24,7 @@ from treetoolml.data.data_gen_utils.dataloaders import (
 ######################
 
 
-def main(args):
-    cfg_path = args.cfg
-    cfg = combine_cfgs(cfg_path, args.opts)
+def main():
 
     loader = all_data_loader(
         onlyTrees=False, preprocess=False, default=False, train_split=True
@@ -66,7 +64,14 @@ def main(args):
         centered_datasets["cylinders"].extend(visualization_cylinders)
         centered_datasets["models"].extend(saved_models)
 
+        all_datasets["cloud"].extend(all_saved_trees)
+        all_datasets["centers"].extend(all_saved_centers)
+        all_datasets["filtered"].extend(all_saved_filtered)
+        all_datasets["cylinders"].extend(all_visualization_cylinders)
+        all_datasets["models"].extend(all_saved_models)
+
     save_datasets(centered_datasets)
+    save_datasets(all_datasets, centered=False)
 
 def get_tree_data(dataset_loader):
 
@@ -86,7 +91,8 @@ def get_tree_data(dataset_loader):
     for temp_index_object_xyz in tqdm(all_trees):
         out_tree = py_util.outliers(temp_index_object_xyz, 100, 10)
         norm_tree = py_util.normalize_2(out_tree)
-        down_points = py_util.downsample(norm_tree, 0.005)
+        #norm_tree = py_util.normalize_2(out_tree)
+        down_points = py_util.downsample(norm_tree, 0.002)
         centered_tree = down_points
         filtered_points = py_util.normal_filter(centered_tree, 0.04, 0.4, 0.1)
         if len(filtered_points) == 0:
@@ -119,6 +125,7 @@ def get_tree_data(dataset_loader):
                     best_cylinder = utils.makecylinder(
                             model=model, height=1, density=30
                         )
+        best_model[:3] = best_model[:3]
         if max_points / len(filtered_points) > 0.4:
             print(max_points / len(filtered_points))
             saved_trees.append(centered_tree)
@@ -131,7 +138,7 @@ def get_tree_data(dataset_loader):
         all_saved_models.append(best_model)
         all_saved_filtered.append(filtered_points)
         all_visualization_cylinders.append(best_cylinder)
-    print("orig tree number", len(saved_trees))
+    print("new tree number", len(saved_trees))
     return [saved_trees,saved_centers,saved_models,saved_filtered,visualization_cylinders], [all_saved_trees,all_saved_centers,all_saved_models,all_saved_filtered,all_visualization_cylinders]
 
 def save_datasets(all_datasets, centered=True):
@@ -184,6 +191,6 @@ def save_datasets(all_datasets, centered=True):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
-    main(args)
+    main()
 
 # %%

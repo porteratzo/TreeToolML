@@ -6,6 +6,8 @@ from treetoolml.Libraries.open3dvis import open3dpaint
 from porteratzolibs.Legacy.Plane import makesphere
 import matplotlib.pyplot as plt
 import matplotlib
+from tictoc import bench_dict
+from numba import jit
 matplotlib.use('TKAgg')
 
 
@@ -24,6 +26,7 @@ def direction_vote_voxels(
 ):
     # accumulate count of visited voxels, and accumulate which point traverses each voxel
     # setup
+    bench_dict['vote'].gstep()
     numpoints = np.size(points, 0)
     output_voxel_direction_count = np.zeros(
         (int(num_voxel_xyz[0]), int(num_voxel_xyz[1]), int(num_voxel_xyz[2])), dtype=int
@@ -37,12 +40,14 @@ def direction_vote_voxels(
         ]
         for _ in range(int(num_voxel_xyz[0]))
     ]
+    bench_dict['vote'].step('step')
     ####
     for i in range(numpoints):
         # visit voxels based on directions
         visited_voxels = VTA.voxel_traversal(
             points[i, :], directions[i, :], min_xyz, num_voxel_xyz, voxel_size
         )
+        bench_dict['vote'].step('trav')
         try:
             for j in range(len(visited_voxels)):
                 output_voxel_direction_count[
@@ -53,8 +58,10 @@ def direction_vote_voxels(
                 per_voxel_direction_start_points[int(visited_voxels[j][0])][
                     int(visited_voxels[j][1])
                 ][int(visited_voxels[j][2])].append(points[i, :])
+            bench_dict['vote'].step('rest')
         except:
             print("prob")
+    bench_dict['vote'].gstop()
 
     return output_voxel_direction_count, per_voxel_direction_start_points
 
@@ -96,6 +103,7 @@ def center_detection_xoy(
 
 ############################################################
 def center_detection(data, voxel_size, angle_threshold, center_direction_count_th=20):
+    bench_dict['center'].gstep()
     """detect the tree centers"""
     object_xyz_list = []
     xyz = data[:, :3]
@@ -104,6 +112,7 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
     max_xyz = np.max(xyz, axis=0) + 0.000001
     delta_xyz = max_xyz - min_xyz
     num_voxel_xyz = np.ceil(delta_xyz / voxel_size)
+    bench_dict['center'].step('init')
 
     #######################################################################
     ############################Center Detection###########################
@@ -115,10 +124,13 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
         xyz, directions, voxel_size, num_voxel_xyz, min_xyz
     )  # voxel rays and list of start points per voxel
     #####centers in xoy plane
+    bench_dict['center'].step('dir vote')
     output_voxel_direction_count_xoy = np.sum(output_voxel_direction_count, axis=2)
+    bench_dict['center'].step('sum')
     object_centers_xoy = center_detection_xoy(
         output_voxel_direction_count_xoy, num_voxel_xyz[:2], center_direction_count_th
     )
+    bench_dict['center'].step('centerxy')
 
     ####centers in z-axis
     for i in range(np.size(object_centers_xoy, 0)):
@@ -151,6 +163,8 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
         object_xyz_list.append(
             [temp_object_center_xoy[0], temp_object_center_xoy[1], temp_index[0][0]]
         )
+
+    bench_dict['center'].step('center z')
 
     if len(object_xyz_list) > 0:
         object_xyz_list = np.vstack(object_xyz_list)
@@ -185,6 +199,8 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
                 temp_objectvoxels.append(temp_objectvoxel_index)
             objectVoxelMask_list.append(temp_objectvoxels)
 
+        bench_dict['center'].step('tree seperation')
+
         #######
         final_object_center_index = []
         for i in range(len(objectVoxelMask_list)):
@@ -216,7 +232,8 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
                         break  #
             if np.size(temp_object_voxels, 0) >= 3:
                 final_object_center_index.append(i)
-
+        bench_dict['center'].step('not sure')
+        bench_dict['center'].gstop()
         object_xyz_list = object_xyz_list[final_object_center_index, :]
     else:
         object_xyz_list = np.array([[999, 999, 999]])
@@ -224,7 +241,7 @@ def center_detection(data, voxel_size, angle_threshold, center_direction_count_t
 
     return object_xyz_list, sep_points_list
 
-
+#@jit(nopython=False)
 def individual_tree_separation(
     xyz,
     directions,
@@ -235,12 +252,13 @@ def individual_tree_separation(
     angle_threshold,
     visulization=False,
 ):
-
+    bench_dict['sep'].gstep()
     #####generate accessible region
     #points_in_accessible_region
     accessible_region, accessible_index = ARG.detect_accessible_region(
         xyz, directions, center_xyz, voxel_size, angle_threshold
     )
+    bench_dict['sep'].step('detectacc')
     if visulization:
         open3dpaint([np.vstack(xyz)]+[np.vstack(accessible_region)] + [makesphere(center_xyz, 0.1)], pointsize=2)
     #####
@@ -258,6 +276,7 @@ def individual_tree_separation(
         min_xyz,
         num_voxel_xyz,
     )
+    bench_dict['sep'].step('voxel')
     ###########
     output_voxels_v2 = np.array(accessible_region_voxels)
     output_voxels_v2 = output_voxels_v2.astype(bool)
@@ -269,7 +288,7 @@ def individual_tree_separation(
         )
     except:
         print("")
-
+    bench_dict['sep'].step('grow')
     ###########visualization
     objcetMask = np.array(objcetMask)
     objcetMask = objcetMask.astype(bool)
@@ -286,4 +305,6 @@ def individual_tree_separation(
         temp_object_xyz_index += voxel2point_index_list[temp_index_voxel2point]
     #####
     object_result = xyz[temp_object_xyz_index, :]
+    bench_dict['sep'].step('end')
+    bench_dict['sep'].gstop()
     return object_result, temp_object_xyz_index, objcetMask

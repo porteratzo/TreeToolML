@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import treetool.utils as utils
-
+from collections import defaultdict
 
 def make_benchmark_metrics():
     Methods = [
@@ -434,3 +434,46 @@ def confusion_metrics(treetool, TreeDict, dataindex, foundindex):
             FPS.append(stat_dict)
 
     return [TPS, FPS, FNS]
+
+
+def store_metrics_detection_only(found_trees, gt_trees, gt_index, found_index):
+    # Get metrics
+    EvaluationMetrics = defaultdict(list)
+    locationerror = []
+    correctlocationerror = []
+    for i, j in zip(gt_index, found_index):
+        locationerror.append(
+            np.linalg.norm((found_trees[j][0:2] - gt_trees[i][0:2]))
+        )
+        if locationerror[-1] < 0.5:
+            correctlocationerror.append(
+                np.linalg.norm(
+                    (found_trees[j][0:2] - gt_trees[i][0:2])
+                )
+            )
+
+    EvaluationMetrics["location_y"] = np.linalg.norm(
+            np.sum(np.array([gt_trees[i][0:2] for i in gt_index]), axis=0)
+            / len(gt_index)
+        )
+
+    EvaluationMetrics["n_ref"] = len(gt_trees)
+    EvaluationMetrics["n_match"] = len(correctlocationerror)
+    EvaluationMetrics["n_extr"] = len(locationerror) - EvaluationMetrics["n_match"]
+
+    EvaluationMetrics["Completeness"] = EvaluationMetrics["n_match"] / EvaluationMetrics["n_ref"]
+    
+    EvaluationMetrics["Correctness"] = EvaluationMetrics["n_match"] / max((EvaluationMetrics["n_extr"] + EvaluationMetrics["n_match"]),1)
+    
+    if len(correctlocationerror) != 0:
+        EvaluationMetrics["Location_RMSE"] = np.sqrt(np.sum(np.array(correctlocationerror) ** 2) / len(correctlocationerror))
+        EvaluationMetrics["Location_bias"] = np.sum(np.array(correctlocationerror)) / len(correctlocationerror)
+        EvaluationMetrics["Relative_Location_RMSE"] = EvaluationMetrics["Location_RMSE"] / EvaluationMetrics["location_y"]
+        EvaluationMetrics["Relative_Location_bias"] = EvaluationMetrics["Location_bias"] / EvaluationMetrics["location_y"]
+    else:
+        EvaluationMetrics["Location_RMSE"] = 100
+        EvaluationMetrics["Location_bias"] = 100
+        EvaluationMetrics["Relative_Location_RMSE"] = 100
+        EvaluationMetrics["Relative_Location_bias"] = 100    
+    
+    return EvaluationMetrics

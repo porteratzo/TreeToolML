@@ -16,10 +16,10 @@ from treetoolml.utils.default_parser import default_argument_parser
 from treetoolml.utils.file_tracability import (find_model_dir,
                                                get_checkpoint_file,
                                                get_model_dir)
-from treetoolml.utils.tictoc import bench_dict, g_timer1
+from tictoc import bench_dict
 
 torch.backends.cudnn.benchmark = True
-
+accumulation_steps = 1
 class start_bench:
         def __init__(self, dataloader) -> None:
             self.dataloader = dataloader
@@ -42,8 +42,6 @@ class start_bench:
                         break
                     except:
                         raise
-                        self.n += 1
-                        print('error')
                 return result
             else:
                 raise StopIteration
@@ -95,9 +93,10 @@ def main(args):
 
     if args.resume:
         model_name = cfg.TRAIN.MODEL_NAME
-        result_dir = os.path.join("results_training", model_name, "trained_model")
+        result_dir = os.path.join("results_training", model_name)
         result_dir = find_model_dir(result_dir)
-        checkpoint_file = os.path.join(result_dir,'trained_model','checkpoints')
+        result_dir = os.path.join(result_dir,'trained_model')
+        checkpoint_file = os.path.join(result_dir,'checkpoints')
         checkpoint_path = get_checkpoint_file(checkpoint_file)
         checkpoint = torch.load(checkpoint_path)
         DeepPointwiseDirections.load_state_dict(checkpoint['model_state_dict']) if checkpoint.get('model_state_dict',False) else None
@@ -125,6 +124,7 @@ def main(args):
             )
 
             #####trainging steps
+            torch.cuda.empty_cache()
             temp_loss, loss_dict = train_one_epoch(
                 DeepPointwiseDirections,
                 epoch,
@@ -136,17 +136,16 @@ def main(args):
                 use_amp,
                 cfg
             )
-            for name, weight in DeepPointwiseDirections.named_parameters():
-                writer.add_histogram(name, weight, epoch)
-                writer.add_histogram(f"{name}.grad", weight.grad, epoch)
+            torch.cuda.empty_cache()
             writer.add_scalar("Loss/total_training", temp_loss, epoch)
             for key in loss_dict.keys():
-                writer.add_scalar.add_scalar(f"Loss/train/{loss_dict[key]}", loss_dict[key], epoch)
-            torch.cuda.empty_cache()
+                writer.add_scalar(f"Loss/train/{key}", loss_dict[key], epoch)
             #####validating steps
-            val_loss, val_loss_dict = validation(DeepPointwiseDirections, test_loader, args, use_amp)
+            torch.cuda.empty_cache()
+            val_loss, val_loss_dict = validation(DeepPointwiseDirections, test_loader, args, use_amp, cfg)
+            torch.cuda.empty_cache()
             for key in val_loss_dict.keys():
-                writer.add_scalar.add_scalar(f"Loss/val/{val_loss_dict[key]}", val_loss_dict[key], epoch)
+                writer.add_scalar(f"Loss/val/{key}", val_loss_dict[key], epoch)
             writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], epoch)
             writer.add_scalar("Loss/total_validation", val_loss, epoch)
 
@@ -177,6 +176,7 @@ def main(args):
         bench_dict.save()
         print('saved perf')
         writer.close()
+        torch.cuda.empty_cache()
         quit()
     except Exception:
         raise
@@ -210,45 +210,49 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
     acc_loss = 0
     loss_dict = {'slackloss':0,'distance_slackloss':0,'distance_loss':0}
     model.train()
+    opt.zero_grad(set_to_none=True)
     for i, (batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(start_bench(generator), )):
     #for i,(batch_train_data, batch_direction_label_data, _)  in enumerate(tqdm(generator)):
-        opt.zero_grad(set_to_none=True)
         bench_dict['epoch'].step('iter')
-
         batch_train_data = batch_train_data.half().to(device)
         batch_direction_label_data = batch_direction_label_data.half().to(device)
         with torch.cuda.amp.autocast(enabled=use_amp):
             y = model(batch_train_data)
             total_loss = Loss_torch.slack_based_direction_loss(
-                y, batch_direction_label_data, use_distance=cfg.TRAIN.DISTANCE_LOSS
+                y, batch_direction_label_data, use_distance=cfg.TRAIN.DISTANCE_LOSS, scaled_dist=cfg.TRAIN.SCALED_DIST
             )
             loss_dict['slackloss'] += Loss_torch.slack_based_direction_loss(
                 y, batch_direction_label_data, use_distance=0
-            )
+            ).detach()
             loss_dict['distance_slackloss'] += Loss_torch.slack_based_direction_loss(
                 y, batch_direction_label_data, use_distance=1
-            )
+            ).detach()
             loss_dict['distance_loss'] += Loss_torch.distance_loss(
                     y, batch_direction_label_data
-                )
+                ).detach() * 0.2
             if cfg.TRAIN.DISTANCE:
                 total_loss += Loss_torch.distance_loss(
                     y, batch_direction_label_data
-                )
-            acc_loss += total_loss
+                ) * 0.2
+            total_loss = total_loss / accumulation_steps
+            disp_total_loss = total_loss.detach()
+            acc_loss += total_loss.detach()
         bench_dict['epoch'].step('infer')
 
         scaler.scale(total_loss).backward()
-        scaler.step(opt)
-        bench_dict['epoch'].step('backprop')
-        scaler.update()
+        bench_dict['epoch'].step('scale')
+        if (i + 1) % accumulation_steps == 0: 
+            scaler.step(opt)
+            scaler.update()
+            opt.zero_grad(set_to_none=True)
+            bench_dict['epoch'].step('backprop')        
 
         bench_dict['epoch'].gstop()
 
-        if i % 20 == 0:
-            print("loss: %f" % (total_loss))
+        if i % (num_batches_training//20) == 0:
+            print("loss: %f" % (disp_total_loss))
     scheduler.step()
-
+    opt.zero_grad(set_to_none=True)
     for key in loss_dict.keys():
         loss_dict[key] = loss_dict[key].cpu()/num_batches_training
 
@@ -256,7 +260,7 @@ def train_one_epoch(model, epoch, generator, opt, scaler, scheduler, args, use_a
     return acc_loss.cpu() / (num_batches_training), loss_dict
 
 
-def validation(model, generator, args, use_amp):
+def validation(model, generator, args, use_amp, cfg):
     if next(model.parameters()).is_cuda:
         device = "cuda"
 
@@ -275,7 +279,7 @@ def validation(model, generator, args, use_amp):
             with torch.cuda.amp.autocast(enabled=use_amp):
                 y = model(batch_test_data)
                 loss_esd_ = Loss_torch.slack_based_direction_loss(
-                    y, batch_direction_label_data
+                    y, batch_direction_label_data, use_distance=cfg.TRAIN.DISTANCE_LOSS, scaled_dist=cfg.TRAIN.SCALED_DIST
                 )
                 loss_dict['slackloss'] += Loss_torch.slack_based_direction_loss(
                     y, batch_direction_label_data, use_distance=0
@@ -285,7 +289,11 @@ def validation(model, generator, args, use_amp):
                 )
                 loss_dict['distance_loss'] += Loss_torch.distance_loss(
                     y, batch_direction_label_data
-                )
+                ) * 0.2
+                if cfg.TRAIN.DISTANCE:
+                    loss_esd_ += Loss_torch.distance_loss(
+                        y, batch_direction_label_data
+                    ) * 0.2
                 total_loss_esd += loss_esd_
     for key in loss_dict.keys():
         loss_dict[key] = loss_dict[key].cpu()/num_batches_testing

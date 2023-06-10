@@ -92,3 +92,16 @@ print('with an average points per tree of ', 4016/(densities_[-1] * side * side)
 print('if you get 3 trees', densities_[-1] * side * side +3)
 print('with an average points per tree of ', 4016/(densities_[-1] * side * side + 3))
 # %%
+from scipy.spatial.distance import cdist
+# %%
+for n, points in enumerate(TreeDict):
+    print('')
+    print('########### plot numer ',n,'###########')
+    points = np.array(points)[:,:2]
+    distance_matrix = cdist(points, points)
+    distance_matrix[distance_matrix==0] = 1000
+    print('distance between trees')
+    print('min', np.min(distance_matrix))
+    print('mean', np.mean(np.min(distance_matrix, axis=0)))
+    print('percentile', np.percentile(np.min(distance_matrix, axis=0), 5))
+# %%

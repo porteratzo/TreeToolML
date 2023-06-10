@@ -10,6 +10,7 @@ import sys
 sys.path.append('/home/omar/Documents/mine/IndividualTreeExtraction/voxel_region_grow')
 #import TreeToolML.IndividualTreeExtraction.voxel_region_grow.VoxelRegionGrow as VoxelRegionGrow
 import VoxelRegionGrow
+from numba import jit
 
 def detect_accessible_region(input_xyz, point_directions, center_xyz, voxel_size, angle_threshold=np.pi / 9):
     """
@@ -45,6 +46,7 @@ def detect_accessible_region(input_xyz, point_directions, center_xyz, voxel_size
     return accessible_region, accessible_index
 
 ############################################################
+#@jit(nopython=False)
 def voxelization(accessible_region, accessible_index, voxel_size, center_xyz, min_xyz, num_voxel_xyz):
 
 
@@ -58,7 +60,8 @@ def voxelization(accessible_region, accessible_index, voxel_size, center_xyz, mi
     seed_voxel = [seed_voxel_id_x, seed_voxel_id_y, seed_voxel_id_z]
 
     #######init voxels
-    output_voxels = np.zeros((int(num_voxel_xyz[0]), int(num_voxel_xyz[1]), int(num_voxel_xyz[2])), dtype=int)
+    #output_voxels = np.zeros((int(num_voxel_xyz[0]), int(num_voxel_xyz[1]), int(num_voxel_xyz[2])), dtype=int)
+    output_voxels = np.zeros((int(num_voxel_xyz[0]), int(num_voxel_xyz[1]), int(num_voxel_xyz[2])), dtype=np.int32)
     ######
     valid_voxel_position = []
     voxel2point_index_list = []
@@ -70,7 +73,8 @@ def voxelization(accessible_region, accessible_index, voxel_size, center_xyz, mi
             temp_x_range = np.where((accessible_region[:, 0] > min_xyz[0] + i * voxel_size)
                                     == (accessible_region[:, 0] <= min_xyz[0] + (i + 1) * voxel_size))
 
-        if np.size(temp_x_range[0]) == 0:
+        #if np.size(temp_x_range[0]) == 0:
+        if len(temp_x_range[0]) == 0:
             continue
         else:
             for j in range(int(num_voxel_xyz[1])):
@@ -80,11 +84,13 @@ def voxelization(accessible_region, accessible_index, voxel_size, center_xyz, mi
                 else:
                     temp_y_range = np.where((accessible_region[:, 1] > min_xyz[1] + j * voxel_size)
                                             == (accessible_region[:, 1] <= min_xyz[1] + (j + 1) * voxel_size))
-                if np.size(temp_y_range[0]) == 0:
+                #if np.size(temp_y_range[0]) == 0:
+                if len(temp_y_range[0]) == 0:
                     continue
                 else:
                     xy_intersect = np.intersect1d(temp_x_range[0], temp_y_range[0])
-                    if np.size(xy_intersect) == 0:
+                    #if np.size(xy_intersect) == 0:
+                    if len(xy_intersect) == 0:
                         continue
                     else:
                         for k in range(int(num_voxel_xyz[2])):
@@ -97,11 +103,13 @@ def voxelization(accessible_region, accessible_index, voxel_size, center_xyz, mi
                                                         == (accessible_region[:, 2] <= min_xyz[2] + (
                                         k + 1) * voxel_size))
 
-                            if np.size(temp_z_range[0]) == 0:
+                            #if np.size(temp_z_range[0]) == 0:
+                            if len(temp_z_range[0]) == 0:
                                 continue
                             else:
                                 xy_z_intersect = np.intersect1d(xy_intersect, temp_z_range[0])
-                                if np.size(xy_z_intersect) != 0:
+                                #if np.size(xy_z_intersect) != 0:
+                                if len(xy_z_intersect) != 0:
                                     valid_voxel_position.append([i, j, k])
                                     ######
                                     temp_voxel2point_index_list = [accessible_index[l] for l in list(xy_z_intersect)]

@@ -5,6 +5,9 @@
         "./IndividualTreeExtraction/utils",
         "./datapreparation"
     ],
-    "python.formatting.provider": "black",
-    "python.pythonPath": "/home/omar/anaconda3/envs/TreeTool/bin/python"
+    "python.formatting.provider": "none",
+    "python.pythonPath": "/home/omar/anaconda3/envs/TreeTool/bin/python",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    }
 }

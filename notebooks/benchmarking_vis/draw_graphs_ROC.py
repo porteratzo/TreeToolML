@@ -28,6 +28,7 @@ from treetoolml.utils.py_util import (
 from treetoolml.utils.benchmark_util import make_metrics_dict
 import pickle
 from treetoolml.Libraries.open3dvis import open3dpaint
+from tictoc import bench_dict
 import ray
 ray.init()
 # %%
@@ -127,8 +128,9 @@ def getMetrics(Nd):
     metrics_dict[Nd] = EvaluationMetrics
     return metrics_dict
 
-#getMetrics(32000)
-#quit()
+getMetrics(100)
+bench_dict.save()
+quit()
 Nd_list = [1, 20, 50, 100, 1000,2000, 4000, 8000, 12000, 16000,32000]
 metrics_dict = {}
 refs = []

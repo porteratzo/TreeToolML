@@ -6,6 +6,8 @@ Created on Mon July 11 18:50:39 2020
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from tictoc import bench_dict
+from numba import jit
 
 def show_voxel(voxels):
     fig = plt.figure()
@@ -14,10 +16,14 @@ def show_voxel(voxels):
     plt.show()
 
 ############################################################
+#@jit(nopython=False)
+inf_val = 1e10
+@jit(nopython=True)
 def voxel_traversal(start_point, directions, min_xyz, num_voxel_xyz, voxel_size):
     '''
     voxel traversal for tree center detection
     '''
+    #bench_dict['trav'].gstep()
     current_voxel_x = int(np.floor((start_point[0] - min_xyz[0]) / voxel_size))
     current_voxel_y = int(np.floor((start_point[1] - min_xyz[1]) / voxel_size))
     current_voxel_z = int(np.floor((start_point[2] - min_xyz[2]) / voxel_size))
@@ -29,14 +35,22 @@ def voxel_traversal(start_point, directions, min_xyz, num_voxel_xyz, voxel_size)
     next_voxel_boundary_x = (current_voxel_x + stepX) * voxel_size + min_xyz[0]
     next_voxel_boundary_y = (current_voxel_y + stepY) * voxel_size + min_xyz[1]
     next_voxel_boundary_z = (current_voxel_z + stepZ) * voxel_size + min_xyz[2]
+    #bench_dict['trav'].step('init')
 
-    tMaxX = (next_voxel_boundary_x - start_point[0]) / directions[0] if directions[0] != 0 else float('inf')
-    tMaxY = (next_voxel_boundary_y - start_point[1]) / directions[1] if directions[1] != 0 else float('inf')
-    tMaxZ = (next_voxel_boundary_z - start_point[2]) / directions[2] if directions[2] != 0 else float('inf')
+    #tMaxX = (next_voxel_boundary_x - start_point[0]) / directions[0] if directions[0] != 0 else float('inf')
+    tMaxX = (next_voxel_boundary_x - start_point[0]) / directions[0] if directions[0] != 0 else inf_val
+    #tMaxY = (next_voxel_boundary_y - start_point[1]) / directions[1] if directions[1] != 0 else float('inf')
+    tMaxY = (next_voxel_boundary_y - start_point[1]) / directions[1] if directions[1] != 0 else inf_val
+    #tMaxZ = (next_voxel_boundary_z - start_point[2]) / directions[2] if directions[2] != 0 else float('inf')
+    tMaxZ = (next_voxel_boundary_z - start_point[2]) / directions[2] if directions[2] != 0 else inf_val
 
-    tDeltaX = voxel_size / directions[0] * stepX if directions[0] != 0 else float('inf')
-    tDeltaY = voxel_size / directions[1] * stepY if directions[1] != 0 else float('inf')
-    tDeltaZ = voxel_size / directions[2] * stepZ if directions[2] != 0 else float('inf')
+    #tDeltaX = voxel_size / directions[0] * stepX if directions[0] != 0 else float('inf')
+    tDeltaX = voxel_size / directions[0] * stepX if directions[0] != 0 else inf_val
+    #tDeltaY = voxel_size / directions[1] * stepY if directions[1] != 0 else float('inf')
+    tDeltaY = voxel_size / directions[1] * stepY if directions[1] != 0 else inf_val
+    #tDeltaZ = voxel_size / directions[2] * stepZ if directions[2] != 0 else float('inf')
+    tDeltaZ = voxel_size / directions[2] * stepZ if directions[2] != 0 else inf_val
+    #bench_dict['trav'].step('inf')
 
     visited_voxels = []
     visited_voxels.append([current_voxel_x, current_voxel_y, current_voxel_z])
@@ -62,6 +76,8 @@ def voxel_traversal(start_point, directions, min_xyz, num_voxel_xyz, voxel_size)
                 current_voxel_y < num_voxel_xyz[1] and current_voxel_y >= 0 and \
                 current_voxel_z < num_voxel_xyz[2] and current_voxel_z >= 0:
             visited_voxels.append([current_voxel_x, current_voxel_y, current_voxel_z])
+    #bench_dict['trav'].step('rest')
+    #bench_dict['trav'].gstop()
 
     return visited_voxels
 

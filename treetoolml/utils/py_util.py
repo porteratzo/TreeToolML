@@ -77,7 +77,8 @@ def load_data(path):
 
 def get_data_set(data_path):
     files_set = os.listdir(data_path)
-    random.shuffle(files_set)
+    files_set = sorted(files_set, key=lambda x: int(x.split('.')[0]))
+    #random.shuffle(files_set)
     return files_set
 
 
@@ -102,6 +103,13 @@ def normalize_2(sample_xyz):
     # normalize into unit sphere
     centerd_tree /= np.max(np.linalg.norm(centerd_tree, axis=1))
     return centerd_tree
+
+def normalize_2_return_scale(sample_xyz):
+    centerd_tree = sample_xyz - np.multiply(np.min(sample_xyz, 0), [0, 0, 1])
+    centerd_tree = centerd_tree - np.multiply(np.mean(centerd_tree, axis=0), [1, 1, 0])
+    # normalize into unit sphere
+    return_tree = centerd_tree/np.max(np.linalg.norm(centerd_tree, axis=1))
+    return return_tree, np.max(np.linalg.norm(centerd_tree, axis=1))
 
 
 def normalize(sample_xyz):

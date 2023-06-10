@@ -21,7 +21,14 @@ from treetoolml.Libraries.open3dvis import open3dpaint
 
 class tree_dataset(Dataset):
     def __init__(
-        self, trainingdata_path, num_points, return_centers=False, normal_filter=False, distances=False
+        self,
+        trainingdata_path,
+        num_points,
+        return_centers=False,
+        normal_filter=False,
+        distances=False,
+        center_collection_size=None,
+        return_scale=False
     ):
         self.files = py_util.get_data_set(trainingdata_path)
         self.path = trainingdata_path
@@ -29,6 +36,8 @@ class tree_dataset(Dataset):
         self.return_centers = return_centers
         self.normal_filter = normal_filter
         self.distances = distances
+        self.center_collection_size = center_collection_size
+        self.return_scale = return_scale
 
     def __len__(self):
         return len(self.files)
@@ -136,6 +145,7 @@ class tree_dataset(Dataset):
         else:
             return training_xyz, training_direction_label, training_object_label
 
+
 class tree_dataset_cloud(tree_dataset):
     def get_tree(self, index):
         bench_dict["loader"].gstep()
@@ -143,11 +153,14 @@ class tree_dataset_cloud(tree_dataset):
         temp_point_set = data["cloud"]
         temp_centers = data["centers"]
         points = temp_point_set[:, :3]
+        points, scale = py_util.normalize_2_return_scale(points)
+        temp_centers[:, :3] = temp_centers[:, :3] / scale
         object_label = temp_point_set[:, 3]
         unique_object_label = np.unique(object_label)
 
         temp_multi_objects_sample = []
         temp_multi_objects_centers = []
+
         bench_dict["loader"].step("start")
         for j in range(np.size(unique_object_label)):
             ###get single object
@@ -155,16 +168,24 @@ class tree_dataset_cloud(tree_dataset):
             center_index = np.where(temp_centers[:, 3] == unique_object_label[j])
             temp_index_object_xyz = points[temp_index[0], :]
             temp_object_center_xyz = temp_centers[:, :3][center_index[0]][0]
-            temp_object_label = np.expand_dims(
-                object_label[temp_index[0]], axis=-1
-            )
+            temp_object_label = np.expand_dims(object_label[temp_index[0]], axis=-1)
             bench_dict["loader"].step("compute 1")
             temp_direction_label = temp_object_center_xyz - temp_index_object_xyz
             if self.distances:
-                distances_label = np.linalg.norm(temp_direction_label[:,:2], axis=1).reshape([-1,1])
-                temp_direction_label = temp_direction_label / np.linalg.norm(temp_direction_label, axis=1).reshape(
-                    [-1, 1])
-                temp_direction_label = np.hstack([temp_direction_label,distances_label])
+                distances_label = np.linalg.norm(
+                    temp_direction_label[:, :2], axis=1
+                ).reshape([-1, 1])
+                distances_label = (distances_label - np.min(distances_label) )/(np.max(distances_label)-np.min(distances_label))
+                temp_direction_label = temp_direction_label / np.linalg.norm(
+                    temp_direction_label, axis=1
+                ).reshape([-1, 1])
+                temp_direction_label = np.hstack(
+                    [temp_direction_label, distances_label]
+                )
+            else:
+                temp_direction_label = temp_direction_label / np.linalg.norm(
+                    temp_direction_label, axis=1
+                ).reshape([-1, 1])
             temp_xyz_direction_label_concat = np.concatenate(
                 [temp_index_object_xyz, temp_direction_label, temp_object_label],
                 axis=-1,
@@ -184,12 +205,16 @@ class tree_dataset_cloud(tree_dataset):
         bench_dict["loader"].step("shuffle")
         bench_dict["loader"].gstop()
 
+        returns = [training_xyz, training_direction_label, training_object_label]
         if self.return_centers:
-            return (
-                training_xyz,
-                training_direction_label,
-                training_object_label,
-                temp_multi_objects_centers,
-            )
-        else:
-            return training_xyz, training_direction_label, training_object_label
+            if self.center_collection_size is not None:
+                [
+                    temp_multi_objects_centers.append(np.array([-1,-1,-1], dtype=np.float16))
+                    for i in range(
+                        self.center_collection_size - len(temp_multi_objects_centers)
+                    )
+                ]
+            returns.append(temp_multi_objects_centers)
+        if self.return_scale:
+            returns.append(scale)
+        return returns

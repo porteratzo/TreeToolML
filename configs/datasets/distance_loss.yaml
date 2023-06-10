@@ -4,5 +4,5 @@ MODEL:
   OUTPUT_NODS: 4
 
 TRAIN:
-  MODEL_NAME: 'trunks_distance'
+  MODEL_NAME: 'trunks_distance_loss'
   DISTANCE: 1
