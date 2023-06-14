@@ -2,7 +2,7 @@ import imp
 import numpy as np
 import treetoolml.IndividualTreeExtraction.voxel_traversal.VoxelTraversalAlgorithm as VTA
 import treetoolml.IndividualTreeExtraction.accessible_region.AccessibleRegionGrowing as ARG
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 from porteratzolibs.Legacy.Plane import makesphere
 import matplotlib.pyplot as plt
 import matplotlib

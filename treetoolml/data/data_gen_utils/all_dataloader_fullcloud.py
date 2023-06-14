@@ -6,7 +6,7 @@ import os
 import numpy as np
 from treetoolml.utils.tictoc import bench_dict
 import treetoolml.utils.py_util as py_util
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 from treetoolml.data.data_gen_utils.dataloaders import data_loader, data_loader_fullcloud
 
 

@@ -1,0 +1,12 @@
+_BASE_: ../baseline.yaml
+
+FILES:
+  DATA_WORK_FOLDER: center_filtered
+
+VALIDATION:
+  PATH: 'datasets/custom_data/trunks/testing_data'
+
+DATA_CREATION:
+  USE_CENTER_FILTERED: 1
+  CENTER_METHOD: 0
+  

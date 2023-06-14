@@ -11,7 +11,7 @@ import laspy
 import numpy as np
 from glob import glob
 from tqdm import tqdm
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 # %%
 
 #cloud_file = 'datasets/bogdan/LabeledTLS/Plot3Group.las'

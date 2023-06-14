@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import os
 from treetoolml.utils.tictoc import bench_dict
 from treetoolml.data.BatchSampleGenerator_torch import tree_dataset_cloud
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 #%%
 #original datasets
 loader = all_data_loader(

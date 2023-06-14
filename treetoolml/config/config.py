@@ -21,7 +21,7 @@ def combine_cfgs(cfg_path, opt=[]):
     if cfg_path is not None and exists(cfg_path):
         cfg_base.merge_from_file(cfg_path)
     else:
-        raise Exception('cfg not found')
+        raise Exception(f'cfg not found: {cfg_path}')
 
     if opt is not []:
         cfg_base.merge_from_list(opt)

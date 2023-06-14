@@ -23,7 +23,7 @@ from treetoolml.utils.tictoc import bench_dict
 from treetoolml.utils.tictoc import bench_dict
 from treetoolml.utils.py_util import outliers, normalize, downsample, normalize_2
 from torch.utils.data import Dataset
-from treetoolml.Libraries.open3dvis import open3dpaint, sidexsidepaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint, sidexsidepaint
 
 ######################
 # Extra processing for Paris_lille dataset to remove bad trees

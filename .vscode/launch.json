@@ -58,16 +58,16 @@
             "justMyCode": true,
             "args": [
                 "--cfg",
-                //"configs/datasets/trunks.yaml",
-                "configs/experimentos_model/subconfigs/distance_out.yaml",
+                "configs/datasets/subconfigs/trunks.yaml",
+                //"configs/experimentos_model/subconfigs/distance_out.yaml",
                 "--amp",
                 "1",
                 "--device",
                 "gpu",
                 "TRAIN.BATCH_SIZE",
-                "8",
+                "1",
                 "VALIDATION.BATCH_SIZE",
-                "8"
+                "1"
             ]
         },
         {

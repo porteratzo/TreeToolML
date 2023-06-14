@@ -25,8 +25,12 @@ def detect_accessible_region(input_xyz, point_directions, center_xyz, voxel_size
     point_directions_L2[point_directions_L2 == 0.0] = 1e-25
 
     ######
-    angles_point2center_vector_and_vote = np.arccos(np.sum(np.multiply(point_directions, temp_point2center_vector), axis=1) /
-                                                    (point_directions_L2 * temp_point2center_vector_L2))
+    angles = np.sum(np.multiply(point_directions, temp_point2center_vector), axis=1) / (point_directions_L2 * temp_point2center_vector_L2)
+    angles[angles>=1] = 0.999
+    angles[angles<=-1] = -0.999
+    angles_point2center_vector_and_vote = np.arccos(angles)
+    if any(np.isnan(angles_point2center_vector_and_vote)):
+        print(angles[np.argmax(np.isnan(angles_point2center_vector_and_vote))])
     #####
     accessible_index = np.where(angles_point2center_vector_and_vote < angle_threshold)
     #####

@@ -1,13 +1,2 @@
-_BASE_: ../datasets/trunks.yaml
+_BASE_: ../datasets/baseline.yaml
 
-TRAIN:
-  MODEL_NAME: 'trunks'
-
-BENCHMARKING:
-  COMBINE_STEMS: 1
-  COMBINE_IOU: 0
-  GROUP_STEMS: 0
-  WINDOW_STRIDE: 8
-  OVERLAP: 0.2
-  VOXEL_SIZE: 0.04
-  XY_THRESHOLD: 80

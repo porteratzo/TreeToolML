@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import os
 from treetoolml.utils.tictoc import bench_dict
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 from treetoolml.utils.vis_utils import vis_trees_centers
 from shutil import rmtree
 

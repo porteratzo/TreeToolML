@@ -7,8 +7,8 @@ import numpy as np
 import pclpy
 from treetoolml.config.config import combine_cfgs
 from treetoolml.utils.file_tracability import find_model_dir
-from treetoolml.Libraries.open3dvis import open3dpaint
-from treetoolml.utils.benchmark_util import make_metrics_dict
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
+from treetoolml.benchmark.benchmark_utils import make_metrics_dict
 import pickle
 import matplotlib.pyplot as plt
 

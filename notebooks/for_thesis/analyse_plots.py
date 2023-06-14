@@ -25,9 +25,9 @@ from treetoolml.utils.py_util import (
     get_center_scale,
     shuffle_data,
 )
-from treetoolml.utils.benchmark_util import make_metrics_dict
+from treetoolml.benchmark.benchmark_utils import make_metrics_dict
 import pickle
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 
 #%%
 number=5

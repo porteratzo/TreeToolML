@@ -20,10 +20,28 @@ from treetoolml.benchmark.benchmark_utils import store_metrics_detection_only
 import pandas as pd
 import numpy as np
 from collections import defaultdict
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
+from treetoolml.utils.vis_utils import vis_trees_centers
+
 
 torch.backends.cudnn.benchmark = True
 
 torch.manual_seed(123)
+
+def angle_b_vectors(a, b):
+    dot_product = np.sum(np.multiply(a, b), axis=-1)
+    norms_product = np.linalg.norm(a, axis=-1) * np.linalg.norm(b, axis=-1)
+    
+    # Ensure the value is within the valid range for arccos
+    value = np.clip(dot_product / norms_product, -1, 1)
+    
+    angle = np.arccos(value)
+    return angle
+
+def DistPoint2Line(point, linepoint1, linepoint2=np.array([0, 0, 0])):
+    cross_product = np.cross((point - linepoint2), (point - linepoint1))
+    distance = np.linalg.norm(cross_product, axis=-1) / np.linalg.norm(linepoint1 - linepoint2, axis=-1)
+    return distance
 
 
 class start_bench:
@@ -73,7 +91,8 @@ def main(args):
     model_dir = find_model_dir(model_dir)
     print(model_dir)
     checkpoint_file = os.path.join(model_dir, "trained_model", "checkpoints")
-    checkpoint_path = get_checkpoint_file(checkpoint_file, 'BEST')
+    checkpoint_path = get_checkpoint_file(checkpoint_file, 'BEST', max=50)
+    print(checkpoint_path)
     model = build_model(cfg).cuda()
     if device == "cuda":
         model.cuda()
@@ -176,6 +195,11 @@ def testing(model, generator, use_amp, cfg):
                 loss_dict["distance_loss"].append(
                     Loss_torch.distance_loss(y, batch_direction_label_data)
                     .cpu()
+                    .numpy()* 0.2
+                ) 
+                loss_dict["distance_slackloss_scaled"].append(
+                    Loss_torch.slack_based_direction_loss(y, batch_direction_label_data, use_distance=1, scaled_dist=1)
+                    .cpu()
                     .numpy()
                 )
                 if cfg.TRAIN.DISTANCE:
@@ -184,17 +208,15 @@ def testing(model, generator, use_amp, cfg):
                     ).cpu().numpy()
                 acc_loss += total_loss
 
-            if n % 25 == 0:
+            if n % 15 == 0:
                 batch_centers_np = np.array(
                     [i.numpy() for i in batch_centers]
                 ).swapaxes(0, 1)
                 for n_center, dirs in enumerate(y):
+                    
+                    xyz_direction = make_xyz_mat(batch_test_data, n_center, dirs)
+                    
                     scale = batch_scales[n_center]
-                    pde_ = np.transpose(dirs.cpu().numpy(), [1, 0])
-                    testdata = batch_test_data[n_center].cpu().numpy()
-                    xyz_direction = np.concatenate([testdata, pde_], -1).astype(
-                        np.float32
-                    )
                     true_centers = batch_centers_np[n_center]
                     true_centers = [
                         i for i in true_centers if np.all(i != np.array([-1, -1, -1]))
@@ -205,6 +227,45 @@ def testing(model, generator, use_amp, cfg):
                         _xyz_direction = xyz_direction[
                             xyz_direction[:, 6] < cfg.DATA_PREPROCESSING.DISTANCE_FILTER
                         ]
+
+                    average_pred_distance = []
+                    average_pred_angle = []
+                    average_correctly_assigned_01 = []
+                    average_correctly_assigned_03 = []
+                    average_correctly_assigned_06 = []
+
+                    average_correctly_assigned_01_d = []
+                    average_correctly_assigned_03_d = []
+                    average_correctly_assigned_06_d = []
+                    for n_c_,center in enumerate(true_centers):                                        
+
+                        idx_s = batch_object_label[n_center]==n_c_
+                        xyz_ = xyz_direction[:,0:3][idx_s]
+                        directions_ = xyz_direction[:,3:6][idx_s]
+                        distance_ = np.linalg.norm(center - xyz_, axis=-1)
+                        
+                        angles_ = angle_b_vectors(center-xyz_,directions_-xyz_)
+                        dists_ = DistPoint2Line(center, xyz_, directions_)
+                        average_pred_distance.append(np.mean(dists_))
+                        average_pred_angle.append(np.mean(angles_))
+                        average_correctly_assigned_01.append(np.sum(dists_<0.1)/len(dists_))
+                        average_correctly_assigned_03.append(np.sum(dists_<0.3)/len(dists_))
+                        average_correctly_assigned_06.append(np.sum(dists_<0.6)/len(dists_))
+
+                        d_dists_ = dists_[distance_<0.5]
+                        average_correctly_assigned_01_d.append(np.sum(d_dists_<0.1)/len(d_dists_))
+                        average_correctly_assigned_03_d.append(np.sum(d_dists_<0.3)/len(d_dists_))
+                        average_correctly_assigned_06_d.append(np.sum(d_dists_<0.6)/len(d_dists_))
+
+                    loss_dict["average_pred_distance"].append(np.mean(average_pred_distance))
+                    loss_dict["average_pred_angle"].append(np.mean(average_pred_angle))
+                    loss_dict["average_correctly_assigned_01"].append(np.mean(average_correctly_assigned_01))
+                    loss_dict["average_correctly_assigned_03"].append(np.mean(average_correctly_assigned_03))
+                    loss_dict["average_correctly_assigned_06"].append(np.mean(average_correctly_assigned_06))
+
+                    loss_dict["average_correctly_assigned_01_d"].append(np.mean(average_correctly_assigned_01_d))
+                    loss_dict["average_correctly_assigned_03_d"].append(np.mean(average_correctly_assigned_03_d))
+                    loss_dict["average_correctly_assigned_06_d"].append(np.mean(average_correctly_assigned_06_d))
                     
                     voxel_size = 0.04
                     object_center_list, seppoints = center_detection(
@@ -238,6 +299,15 @@ def testing(model, generator, use_amp, cfg):
         "distance_slackloss",
         "distance_loss",
         "Location_RMSE",
+        "average_pred_distance",
+        "average_pred_angle",
+        'distance_slackloss_scaled',
+        'average_correctly_assigned_01',
+        'average_correctly_assigned_03',
+        'average_correctly_assigned_06',
+        'average_correctly_assigned_01_d',
+        'average_correctly_assigned_03_d',
+        'average_correctly_assigned_06_d',
     ]:
         loss_dict[key] = np.mean(loss_dict[key])
     for key in ["n_ref", "n_match", "n_extr"]:
@@ -246,16 +316,14 @@ def testing(model, generator, use_amp, cfg):
     loss_dict["Correctness"] = loss_dict["n_match"] / max((loss_dict["n_extr"] + loss_dict["n_match"]),1)
     return acc_loss / num_batches_testing, loss_dict
 
-    if cfg.DATA_PREPROCESSING.DISTANCE_FILTER == 0.0:
-        _xyz_direction = xyz_direction
-    else:
-        _xyz_direction = xyz_direction[
-            xyz_direction[:, 6] < cfg.DATA_PREPROCESSING.DISTANCE_FILTER
-        ]
-
-    object_center_list, seppoints = center_detection(
-        _xyz_direction, voxel_size, ARe, Nd
-    )
+def make_xyz_mat(batch_test_data, n_center, dirs):
+    pde_ = np.transpose(dirs.cpu().numpy(), [1, 0])
+    testdata = batch_test_data[n_center].cpu().numpy()
+    xyz_direction = np.concatenate([testdata, pde_], -1).astype(
+                        np.float32
+                    )
+    
+    return xyz_direction
 
 
 if __name__ == "__main__":

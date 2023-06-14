@@ -30,18 +30,18 @@ class relation_reasoning_layers(nn.Module):
         self.conv1 = nn.Conv2d(
             input_shape, nodes_list[0], kernel_size=[1, 1], stride=[1, 1], padding=0
         )
-        torch.nn.init.xavier_uniform(self.conv1.weight)
+        torch.nn.init.xavier_uniform_(self.conv1.weight)
         self.bn1 = nn.BatchNorm2d(nodes_list[0], affine=False)
         self.conv2 = nn.Conv2d(
             nodes_list[0], nodes_list[1], kernel_size=[1, 1], stride=[1, 1], padding=0
         )
-        torch.nn.init.xavier_uniform(self.conv2.weight)
+        torch.nn.init.xavier_uniform_(self.conv2.weight)
         self.bn2 = nn.BatchNorm2d(nodes_list[1], affine=False)
 
         self.conv3 = nn.Conv2d(
             nodes_list[1], nodes_list[2], kernel_size=[1, 1], stride=[1, 1], padding=0
         )
-        torch.nn.init.xavier_uniform(self.conv3.weight)
+        torch.nn.init.xavier_uniform_(self.conv3.weight)
         self.bn3 = nn.BatchNorm2d(nodes_list[2], affine=False)
 
     def forward(self, x):
@@ -145,14 +145,14 @@ class get_model_RRFSegNet(nn.Module):
         self.end_net1 = nn.Conv2d(
             1216, 256, kernel_size=[1, 1], stride=[1, 1], padding=0
         )
-        torch.nn.init.xavier_uniform(self.end_net1.weight)
+        torch.nn.init.xavier_uniform_(self.end_net1.weight)
         self.end_bn1 = nn.BatchNorm2d(256, affine=False)
         self.drop_out = nn.Dropout(p=0.4)
         self.end_net2 = nn.Conv2d(256, 64, kernel_size=[1, 1], stride=[1, 1], padding=0)
-        torch.nn.init.xavier_uniform(self.end_net2.weight)
+        torch.nn.init.xavier_uniform_(self.end_net2.weight)
         self.end_bn2 = nn.BatchNorm2d(64, affine=False)
         self.end_net3 = nn.Conv2d(64, 3, kernel_size=[1, 1], stride=[1, 1], padding=0)
-        torch.nn.init.xavier_uniform(self.end_net3.weight)
+        torch.nn.init.xavier_uniform_(self.end_net3.weight)
         self.end_bn3 = nn.BatchNorm2d(3, affine=False)
 
     def forward(self, x):

@@ -2,10 +2,16 @@ import os
 import numpy as np
 from datetime import datetime
 from glob import glob
+import re
 
 
-def get_checkpoint_file(partial_path, file_type="LATEST"):
+def get_checkpoint_file(partial_path, file_type="LATEST", max=None):
     cp_files = os.listdir(partial_path)
+    if max is not None:
+        pattern = r"model-(\d+)-train_loss"
+        iter_count = np.array([int(re.search(pattern, cp_file).group(1)) for cp_file in cp_files])
+        cp_files = np.array(cp_files)[iter_count<max]
+
     val_acc = [
         float(os.path.splitext(cp_file.split("-")[3])[0].split(':')[1]) for cp_file in cp_files
     ]

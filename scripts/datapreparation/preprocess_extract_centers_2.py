@@ -14,7 +14,7 @@ import numpy as np
 from tqdm import tqdm
 import pickle
 from torch.utils.data import Dataset
-from treetoolml.Libraries.open3dvis import open3dpaint, sidexsidepaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint, sidexsidepaint
 from treetoolml.data.data_gen_utils.dataloaders import (
         save_cloud,
     )

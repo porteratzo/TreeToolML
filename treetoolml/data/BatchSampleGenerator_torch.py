@@ -16,7 +16,7 @@ import treetoolml.utils.py_util as py_util
 from treetoolml.utils.tictoc import bench_dict
 from torch.utils.data import Dataset
 from treetoolml.data.data_gen_utils.dataloaders import downsample
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 
 
 class tree_dataset(Dataset):
@@ -153,8 +153,8 @@ class tree_dataset_cloud(tree_dataset):
         temp_point_set = data["cloud"]
         temp_centers = data["centers"]
         points = temp_point_set[:, :3]
-        points, scale = py_util.normalize_2_return_scale(points)
-        temp_centers[:, :3] = temp_centers[:, :3] / scale
+        points, temp_centers[:, :3], scale = py_util.normalize_2_center_return_scale(points, temp_centers[:, :3])
+        #temp_centers[:, :3] = temp_centers[:, :3] / scale
         object_label = temp_point_set[:, 3]
         unique_object_label = np.unique(object_label)
 

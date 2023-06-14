@@ -6,7 +6,7 @@ from treetoolml.utils.py_util import (
     makesphere,
     shuffle_data,
 )
-from treetoolml.Libraries.open3dvis import open3dpaint
+from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 
 def vis_trees_centers(cloud, centers):
     spheres = [makesphere(p,0.05) for p in centers]

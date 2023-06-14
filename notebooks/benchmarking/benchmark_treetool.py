@@ -10,7 +10,7 @@ import pclpy
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
 from treetoolml.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, confusion_metrics
-from treetoolml.utils.benchmark_util import make_metrics_dict
+from treetoolml.benchmark.benchmark_utils import make_metrics_dict
 import pickle
 
 

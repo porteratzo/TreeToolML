@@ -1,11 +1,5 @@
-"""
-Created on Mon July 11 18:50:39 2020
-
-@author: Haifeng Luo
-"""
 
 import os
-import sys
 import torch
 import numpy as np
 import IndividualTreeExtraction.backbone_network.PDE_net_torch as PDE_net_torch

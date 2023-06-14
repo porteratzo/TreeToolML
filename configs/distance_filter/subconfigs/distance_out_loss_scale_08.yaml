@@ -1,0 +1,13 @@
+_BASE_: ../baseline.yaml
+
+MODEL:
+  OUTPUT_NODS: 4
+
+DATA_PREPROCESSING:
+  DISTANCE_FILTER: 0.8
+
+TRAIN:
+  MODEL_NAME: 'trunks_distance_out_loss_scale'
+  DISTANCE: 1
+  DISTANCE_LOSS: 1
+  SCALED_DIST: 1

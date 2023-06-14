@@ -452,7 +452,11 @@ def store_metrics_detection_only(found_trees, gt_trees, gt_index, found_index):
                 )
             )
 
-    EvaluationMetrics["location_y"] = np.linalg.norm(
+    
+    if len(gt_index) == 0:
+        EvaluationMetrics["location_y"] = 100
+    else:
+        EvaluationMetrics["location_y"] = np.linalg.norm(
             np.sum(np.array([gt_trees[i][0:2] for i in gt_index]), axis=0)
             / len(gt_index)
         )
@@ -468,12 +472,38 @@ def store_metrics_detection_only(found_trees, gt_trees, gt_index, found_index):
     if len(correctlocationerror) != 0:
         EvaluationMetrics["Location_RMSE"] = np.sqrt(np.sum(np.array(correctlocationerror) ** 2) / len(correctlocationerror))
         EvaluationMetrics["Location_bias"] = np.sum(np.array(correctlocationerror)) / len(correctlocationerror)
-        EvaluationMetrics["Relative_Location_RMSE"] = EvaluationMetrics["Location_RMSE"] / EvaluationMetrics["location_y"]
-        EvaluationMetrics["Relative_Location_bias"] = EvaluationMetrics["Location_bias"] / EvaluationMetrics["location_y"]
+        if len(gt_index) != 0:
+            EvaluationMetrics["Relative_Location_RMSE"] = EvaluationMetrics["Location_RMSE"] / EvaluationMetrics["location_y"]
+            EvaluationMetrics["Relative_Location_bias"] = EvaluationMetrics["Location_bias"] / EvaluationMetrics["location_y"]
+        else:
+            EvaluationMetrics["Relative_Location_RMSE"] = 100
+            EvaluationMetrics["Relative_Location_bias"] = 100
     else:
         EvaluationMetrics["Location_RMSE"] = 100
         EvaluationMetrics["Location_bias"] = 100
         EvaluationMetrics["Relative_Location_RMSE"] = 100
         EvaluationMetrics["Relative_Location_bias"] = 100    
     
+    return EvaluationMetrics
+
+def make_metrics_dict():
+    EvaluationMetrics = {}
+    EvaluationMetrics["Completeness"] = []
+    EvaluationMetrics["Correctness"] = []
+    EvaluationMetrics["Mean_AoD"] = []
+    EvaluationMetrics["Diameter_RMSE"] = []
+    EvaluationMetrics["Diameter_RMSE_E"] = []
+    EvaluationMetrics["Diameter_RMSE_C"] = []
+    EvaluationMetrics["Diameter_bias"] = []
+    EvaluationMetrics["Location_RMSE"] = []
+    EvaluationMetrics["Location_bias"] = []
+    EvaluationMetrics["Relative_Diameter_RMSE"] = []
+    EvaluationMetrics["Relative_Diameter_bias"] = []
+    EvaluationMetrics["Relative_Location_RMSE"] = []
+    EvaluationMetrics["Relative_Location_bias"] = []
+    EvaluationMetrics["n_ref"] = []
+    EvaluationMetrics["n_match"] = []
+    EvaluationMetrics["n_extr"] = []
+    EvaluationMetrics["location_y"] = []
+    EvaluationMetrics["diameter_y"] = []
     return EvaluationMetrics
