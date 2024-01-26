@@ -18,6 +18,10 @@ from porteratzolibs.visualization_o3d.open3dvis import open3dpaint, sidexsidepai
 from treetoolml.data.data_gen_utils.dataloaders import (
         save_cloud,
     )
+from treetoolml.utils.vis_utils import tree_vis_tool
+import treetool.seg_tree as seg_tree
+import pclpy
+from scipy.spatial import distance
 
 ######################
 # Extra processing for Paris_lille dataset to remove bad trees
@@ -36,8 +40,8 @@ def main():
     loader.load_all("datasets/custom_data/preprocessed")
     for dataset_loader in tqdm(loader.dataset_list):
         good_trees, all_trees = get_tree_data(dataset_loader)
-        saved_trees, saved_centers, saved_models, saved_filtered, visualization_cylinders = good_trees
-        all_saved_trees, all_saved_centers, all_saved_models, all_saved_filtered, all_visualization_cylinders = all_trees
+        saved_trees, saved_centers, saved_models, saved_filtered, saved_trunk, visualization_cylinders = good_trees
+        all_saved_trees, all_saved_centers, all_saved_models, all_saved_filtered, all_saved_trunk, all_visualization_cylinders = all_trees
         """
         
         sidexsidepaint(
@@ -59,12 +63,14 @@ def main():
         sidexsidepaint(badd_trees, pointsize=2, axis=1, for_thesis=True)
         """
         centered_datasets["cloud"].extend(saved_trees)
+        centered_datasets['trunks'].extend(saved_trunk)
         centered_datasets["centers"].extend(saved_centers)
         centered_datasets["filtered"].extend(saved_filtered)
         centered_datasets["cylinders"].extend(visualization_cylinders)
         centered_datasets["models"].extend(saved_models)
 
         all_datasets["cloud"].extend(all_saved_trees)
+        all_datasets['trunks'].extend(all_saved_trunk)
         all_datasets["centers"].extend(all_saved_centers)
         all_datasets["filtered"].extend(all_saved_filtered)
         all_datasets["cylinders"].extend(all_visualization_cylinders)
@@ -76,12 +82,14 @@ def main():
 def get_tree_data(dataset_loader):
 
     saved_trees = []
+    saved_trunk = []
     saved_centers = []
     saved_models = []
     saved_filtered = []
     visualization_cylinders = []
 
     all_saved_trees = []
+    all_saved_trunk = []
     all_saved_centers = []
     all_saved_models = []
     all_saved_filtered = []
@@ -92,21 +100,40 @@ def get_tree_data(dataset_loader):
         out_tree = py_util.outliers(temp_index_object_xyz, 100, 10)
         norm_tree = py_util.normalize_2(out_tree)
         #norm_tree = py_util.normalize_2(out_tree)
-        down_points = py_util.downsample(norm_tree, 0.002)
+        down_points = py_util.downsample(norm_tree, 0.004)
         centered_tree = down_points
-        filtered_points = py_util.normal_filter(centered_tree, 0.04, 0.4, 0.1)
+        filtered_points = py_util.normal_filter(centered_tree, 0.01, 0.3, 0.14)
         if len(filtered_points) == 0:
             continue
-        tree_groups = py_util.group_trees(filtered_points, 0.1, 100)
+        tree_groups = py_util.group_trees(filtered_points, 0.2, 100)
         max_points = 0
         for single_tree in tree_groups:
-            index, model = py_util.seg_normals(
+            if True:
+                index, model = py_util.seg_normals(
+                        single_tree,
+                        0.04,
+                        0.000001,
+                        distance=0.01,
+                        rlim=[0, 0.015],
+                        miter=2000
+                    )
+                rg_clusters = seg_tree.region_growing(single_tree,20,nn=20,smoothness=26, curvature=1)
+                rg_clusters = rg_clusters[np.argmax([len(i) for i in rg_clusters])]
+                rg_clusters = np.array(np.min(distance.cdist(rg_clusters,centered_tree),axis=0)<0.01)
+                #rg_clusters = centered_tree[np.min(distance.cdist(rg_clusters,centered_tree),axis=0)<0.01]
+            elif False:
+                index, model = seg_tree.segment_normals(
                     single_tree,
-                    0.04,
-                    0.000001,
-                    distance=0.01,
-                    rlim=[0, 0.05],
+                    search_radius=0.04,
+                    model=pclpy.pcl.sample_consensus.SACMODEL_STICK,
+                    method=pclpy.pcl.sample_consensus.SAC_RANSAC,
+                    normalweight=0.000001,
+                    miter=1000,
+                    distance=0.2,
+                    rlim=[0, 0.10],
                 )
+                rg_clusters = seg_tree.region_growing(single_tree,20,nn=20,smoothness=20, curvature=1)
+                rg_clusters = rg_clusters[np.argmax([len(i) for i in rg_clusters])]
             if max_points < len(single_tree[index]):
                 max_points = len(single_tree[index])
                 if (
@@ -125,21 +152,25 @@ def get_tree_data(dataset_loader):
                     best_cylinder = utils.makecylinder(
                             model=model, height=1, density=30
                         )
-        best_model[:3] = best_model[:3]
+                    best_model[:3] = np.mean(rg_clusters, axis=0)
         if max_points / len(filtered_points) > 0.4:
             print(max_points / len(filtered_points))
+            saved_trunk.append(rg_clusters)
             saved_trees.append(centered_tree)
             saved_centers.append(best_model[:3])
             saved_models.append(best_model)
-            saved_filtered.append(filtered_points)
+            #saved_filtered.append(filtered_points)
+            saved_filtered.append(down_points)
             visualization_cylinders.append(best_cylinder)
+        all_saved_trunk.append(rg_clusters)
         all_saved_trees.append(centered_tree)
         all_saved_centers.append(best_model[:3])
         all_saved_models.append(best_model)
-        all_saved_filtered.append(filtered_points)
+        #all_saved_filtered.append(filtered_points)
+        all_saved_filtered.append(down_points)
         all_visualization_cylinders.append(best_cylinder)
     print("new tree number", len(saved_trees))
-    return [saved_trees,saved_centers,saved_models,saved_filtered,visualization_cylinders], [all_saved_trees,all_saved_centers,all_saved_models,all_saved_filtered,all_visualization_cylinders]
+    return [saved_trees,saved_centers,saved_models,saved_filtered, saved_trunk,visualization_cylinders], [all_saved_trees,all_saved_centers,all_saved_models,all_saved_filtered,all_saved_trunk,all_visualization_cylinders]
 
 def save_datasets(all_datasets, centered=True):
     point_cloud = np.vstack(all_datasets["cloud"])
@@ -175,12 +206,13 @@ def save_datasets(all_datasets, centered=True):
     )
 
     info_dict = {
-        n: {"center": center, "cyl": cyl, "model": model}
-        for n, (center, cyl, model) in enumerate(
+        n: {"center": center, "cyl": cyl, "model": model, "trunks":trunk}
+        for n, (center, cyl, model, trunk) in enumerate(
             zip(
                 all_datasets["centers"],
                 all_datasets["cylinders"],
                 all_datasets["models"],
+                all_datasets["trunks"],
             )
         )
     }

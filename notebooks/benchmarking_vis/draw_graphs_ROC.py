@@ -11,10 +11,10 @@ from tqdm import tqdm
 from treetoolml.utils.default_parser import default_argument_parser
 from treetoolml.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, confusion_metrics
 from treetoolml.config.config import combine_cfgs
-from treetoolml.IndividualTreeExtraction.center_detection.center_detection_vis import (
+from treetoolml.IndividualTreeExtraction_utils.center_detection import (
     center_detection,
 )
-from treetoolml.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import (
+from treetoolml.IndividualTreeExtraction_utils.PointwiseDirectionPrediction_torch import (
     prediction,
 )
 from treetoolml.model.build_model import build_model
@@ -34,11 +34,11 @@ ray.init()
 # %%
     
 @ray.remote
-def getMetrics_remote(Nd):
-    return getMetrics(Nd)
+def getMetrics_remote(ARe):
+    return getMetrics(ARe)
 
-def getMetrics(Nd):
-    print('using ',Nd)
+def getMetrics(ARe):
+    print('using ',ARe)
     cfg = combine_cfgs("configs/experimentos_distancefilter/subconfigs/distance_loss.yaml", [])
 
     model_name = cfg.FILES.RESULT_FOLDER
@@ -52,7 +52,7 @@ def getMetrics(Nd):
         dataresult_list = pickle.load(f)
 
     voxel_size = cfg.BENCHMARKING.VOXEL_SIZE
-    #Nd = cfg.BENCHMARKING.XY_THRESHOLD
+    Nd = cfg.BENCHMARKING.XY_THRESHOLD
     ARe = np.deg2rad(cfg.BENCHMARKING.ANGLE_THRESHOLD)
 
     metrics_dict = {}
@@ -128,10 +128,10 @@ def getMetrics(Nd):
     metrics_dict[Nd] = EvaluationMetrics
     return metrics_dict
 
-getMetrics(100)
-bench_dict.save()
-quit()
-Nd_list = [1, 20, 50, 100, 1000,2000, 4000, 8000, 12000, 16000,32000]
+#getMetrics(100)
+#bench_dict.save()
+#quit()
+Nd_list = [5,10,20,30,40,50]
 metrics_dict = {}
 refs = []
 for nd in tqdm(Nd_list, desc='nd list'):

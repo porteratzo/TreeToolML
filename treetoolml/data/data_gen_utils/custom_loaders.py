@@ -1,4 +1,4 @@
-from treetoolml.utils.py_util import outliers, normalize
+
 import open3d as o3d
 import numpy as np
 from plyfile import PlyData

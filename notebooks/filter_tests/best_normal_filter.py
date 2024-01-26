@@ -17,9 +17,9 @@ from treetoolml.data.data_gen_utils.all_dataloader import all_data_loader
 import numpy as np
 from tqdm import tqdm
 
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 from torch.utils.data import Dataset
 from porteratzolibs.visualization_o3d.open3dvis import open3dpaint, sidexsidepaint
 

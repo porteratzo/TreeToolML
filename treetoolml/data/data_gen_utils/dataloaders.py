@@ -2,7 +2,7 @@ import open3d as o3d
 import numpy as np
 from plyfile import PlyData, PlyElement
 from collections import defaultdict
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 import treetoolml.utils.py_util as py_util
 try:
     from open3d.ml.contrib import subsample
@@ -326,16 +326,22 @@ class data_loader:
 class data_loader_fullcloud(data_loader):
     def load_data(self, dir):
         super().load_data(os.path.join(dir, 'full_filter' + ".ply"))
+        #super().load_data(os.path.join(dir, 'full_clouds' + ".ply"))
         with open(dir + "/" + "info" + ".pk", "rb") as f:
             info_dict = pickle.load(f)
         
         self.centers = [i['center'] for i in info_dict.values()]
         self.cylinders = [i['cyl'] for i in info_dict.values()]
         self.models = [i['model'] for i in info_dict.values()]
+        if 'trunks' in list(info_dict.values())[0].keys():
+            self.trunks = [i['trunks'] for i in info_dict.values()]
+        else:
+            self.trunks = None
 
     def get_random_forground(
         self,
         split=None,
+        trunks=False
     ):
         bench_dict['forground'].gstep()
         if self.trees is not None:
@@ -353,6 +359,8 @@ class data_loader_fullcloud(data_loader):
                 choice = np.random.choice(self.val_trees)
             smaller_forground = point_cloud[choice]
             center = self.centers[choice]
+            if trunks:
+                trunk = self.trunks[choice]
             while len(smaller_forground) < 120:
                 if split:
                     choice = np.random.choice(self.train_trees)
@@ -360,15 +368,24 @@ class data_loader_fullcloud(data_loader):
                     choice = np.random.choice(self.test_trees)
                 smaller_forground = point_cloud[choice]
                 center = self.centers[choice]
+                if trunks:
+                    trunk = self.trunks[choice]
+
         else:
             point_cloud_len = len(point_cloud)
             choice = np.random.choice(point_cloud_len)
             smaller_forground = point_cloud[choice]
             center = self.centers[choice]
+            if trunks:
+                trunk = self.trunks[choice]
             while len(smaller_forground) < 120:
                 choice = np.random.choice(point_cloud_len)
                 smaller_forground = point_cloud[choice]
                 center = self.centers[choice]
+                if trunks:
+                    trunk = self.trunks[choice]
         bench_dict['forground'].step('split')
-
-        return smaller_forground, center
+        if trunks:
+            return smaller_forground, center, trunk
+        else:
+            return smaller_forground, center

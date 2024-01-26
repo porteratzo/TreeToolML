@@ -31,7 +31,7 @@ def main():
 
         pclpy.pcl.io.loadPCDFile(cloud_file, PointCloud)
 
-        treetool = treeTool.TreeTool(PointCloud)
+        treetool = treeTool.treetool(PointCloud)
         treetool.step_1_remove_floor()
         treetool.step_2_normal_filtering(
             verticality_threshold=0.04, curvature_threshold=0.06, search_radius=0.08

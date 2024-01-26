@@ -9,21 +9,26 @@ import torch
 import torch.nn.functional as f
 
 
-def distance_loss(pre_direction, gt_direction, sigma=0.955):
+def distance_loss(pre_direction, gt_direction, sigma=0.955, classif=False):
     '''
     Loss in inferering distance from center
     '''
     pre_direction = pre_direction.permute(0, 2, 1)
-    if (pre_direction.shape[2]>3) and (gt_direction.shape[2]>3):
-        _gt_direction = gt_direction[:, :, 3]
-        _pre_direction = pre_direction[:, :, 3]
-        loss = torch.mean(torch.square(_gt_direction - _pre_direction))
+    if classif:
+        _gt_class = gt_direction[:, :, 3]
+        _pre_class = pre_direction[:, :, 3]
+        loss = torch.mean(torch.binary_cross_entropy_with_logits(_pre_class, _gt_class))
     else:
-        loss = torch.ones(1)
+        if (pre_direction.shape[2]>3) and (gt_direction.shape[2]>3):
+            _gt_direction = gt_direction[:, :, 3]
+            _pre_direction = pre_direction[:, :, 3]
+            loss = torch.mean(torch.square(_gt_direction - _pre_direction))
+        else:
+            loss = torch.ones(1)
     return loss
 
 
-def slack_based_direction_loss(pre_direction, gt_direction, sigma=0.955, use_distance=False, scaled_dist = False):
+def slack_based_direction_loss(pre_direction, gt_direction, sigma=0.955, use_distance=False, scaled_dist = False, classif=False):
     '''
     Error Slack-based Direction Loss
     '''
@@ -34,7 +39,11 @@ def slack_based_direction_loss(pre_direction, gt_direction, sigma=0.955, use_dis
     if scaled_dist and use_distance:
         loss = (sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction), dim=2)) * (1-gt_direction[:, :, 3]) / torch.mean(1-gt_direction[:, :, 3], dim=1).unsqueeze(1)
     elif use_distance:
-        loss = (sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction), dim=2)) * (1-gt_direction[:, :, 3])
+        if classif:
+            scale_v = gt_direction[:, :, 3]
+        else:
+            scale_v = (1-gt_direction[:, :, 3])
+        loss = (sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction), dim=2)) * scale_v
     else:
         loss = sigma - torch.sum(torch.multiply(_pre_direction, _gt_direction), dim=2)
     tmp = torch.zeros_like(loss)

@@ -22,10 +22,10 @@ from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
 from treetoolml.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results
 from treetoolml.config.config import combine_cfgs
-from treetoolml.IndividualTreeExtraction.center_detection.center_detection import (
+from treetoolml.IndividualTreeExtraction_utils.center_detection.center_detection import (
     center_detection,
 )
-from treetoolml.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import (
+from treetoolml.IndividualTreeExtraction_utils.PointwiseDirectionPrediction_torch import (
     prediction,
 )
 from treetoolml.model.build_model import build_model

@@ -23,6 +23,7 @@ def main():
             plt.subplot(12, 1, n * 3 + n2 + 1)
             plt.title(i + " " + dificulties[n2])
             mine = np.mean(EvaluationMetrics[i][slice(n2, n2 + 2)]) * 100
+            print(i, n2, mine)
             colors = [np.array(cm.gist_rainbow(i))*0.5 if i!=1 else cm.gist_rainbow(i) for i in np.linspace(0,1,len(Methods)+1)]
             sortstuff = sorted(
                 zip(
@@ -50,6 +51,7 @@ def main():
             plt.subplot(12, 1, n * 3 + n2 + 1)
             plt.title(i + " " + dificulties[n2])
             mine = np.mean(EvaluationMetrics[i][slice(n2, n2 + 2)]) * 100
+            print(i, n2, mine)
             sortstuff = sorted(
                 zip(
                     Methods + ["our_imp"],

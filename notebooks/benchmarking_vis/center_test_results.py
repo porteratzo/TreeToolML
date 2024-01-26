@@ -18,12 +18,12 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from treetoolml.config.config import combine_cfgs
 from treetoolml.data.BatchSampleGenerator_torch import tree_dataset
-from treetoolml.IndividualTreeExtraction.center_detection.center_detection import (
+from treetoolml.IndividualTreeExtraction_utils.center_detection.center_detection import (
     center_detection,
 )
 from torch.multiprocessing import Pool
 from itertools import repeat
-from treetoolml.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import (
+from treetoolml.IndividualTreeExtraction_utils.PointwiseDirectionPrediction_torch import (
     prediction,
 )
 from treetoolml.model.build_model import build_model

@@ -13,7 +13,7 @@
             //"justMyCode": false,
             "args": [
                 "--cfg",
-                "configs/datasets/trunks.yaml",
+                "configs/datasets/subconfigs/trunks.yaml",
                 "--amp",
                 "1",
                 "--resume",
@@ -35,11 +35,12 @@
             "justMyCode": true,
             "args": [
                 "--cfg",
-                "configs/experimentos_model/subconfigs/distance_out_loss.yaml",
+                //"configs/experimentos_model/subconfigs/distance_out_loss.yaml",
+                "configs/datasets/subconfigs/trunks_new.yaml",
                 "--amp",
                 "1",
                 "--resume",
-                "1",
+                "0",
                 "--device",
                 "gpu",
                 "TRAIN.BATCH_SIZE",
@@ -58,7 +59,9 @@
             "justMyCode": true,
             "args": [
                 "--cfg",
-                "configs/datasets/subconfigs/trunks.yaml",
+                //"configs/datasets/subconfigs/trunks.yaml",
+                //"configs/experimentos_model/subconfigs/distance_out_loss.yaml",
+                "configs/datasets/subconfigs/trunks_new.yaml",
                 //"configs/experimentos_model/subconfigs/distance_out.yaml",
                 "--amp",
                 "1",
@@ -95,7 +98,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--cfg",
-                "configs/datasets/trunks.yaml",
+                "configs/datasets/subconfigs/trunks_new.yaml",
             ]
         },
         {
@@ -107,7 +110,8 @@
             "args": [
                 "--cfg",
                 //"configs/experimentos_voxelsize/subconfigs/baseline_small.yaml",
-                "configs/experimentos_combine/subconfigs/baseline_group_stems.yaml",
+                //"configs/experimentos_center/subconfigs/distance_out_loss_clustering.yaml",
+                "configs/datasets/subconfigs/trunks_new.yaml",
             ]
         }
     ]

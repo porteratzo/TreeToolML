@@ -18,10 +18,10 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 
-from treetoolml.utils.tictoc import bench_dict
-from treetoolml.utils.py_util import outliers, normalize, downsample, normalize_2
+from tictoc import bench_dict
+from treetoolml.utils.py_util import outliers, downsample, normalize_2
 from torch.utils.data import Dataset
 from porteratzolibs.visualization_o3d.open3dvis import open3dpaint, sidexsidepaint
 

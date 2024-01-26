@@ -123,18 +123,19 @@ def get_relation_features(point_features, nn_idx, k):
 class get_model_RRFSegNet(nn.Module):
     def __init__(self, MODEL_CFG):
         super(get_model_RRFSegNet, self).__init__()
+        self.MODEL_CFG = MODEL_CFG
         self.net_1 = relation_reasoning_layers(9, nodes_list=[64, 64, 64])
         self.net_2 = relation_reasoning_layers(192, nodes_list=[128, 128, 128])
         self.global_net = nn.Conv2d(
             192, 1024, kernel_size=[1, 1], stride=[1, 1], padding=0
         )
-        self.end_net = nn.Sequential(
-            build_conv_block(1216, 256, True),
+        end_layers = [build_conv_block(1216, 256, True),
             build_conv_block(256, 64),
-            nn.Conv2d(64, MODEL_CFG.OUTPUT_NODS, kernel_size=[1, 1], stride=[1, 1], padding=0),
-            nn.BatchNorm2d(MODEL_CFG.OUTPUT_NODS, affine=False),
-        )
-        
+            nn.Conv2d(64, MODEL_CFG.OUTPUT_NODS, kernel_size=[1, 1], stride=[1, 1], padding=0),]
+        if MODEL_CFG.LAST_BATCHNORM:
+            end_layers.append(nn.BatchNorm2d(MODEL_CFG.OUTPUT_NODS, affine=False))
+        self.end_net = nn.Sequential(*end_layers
+        )       
         
 
     def forward(self, x):
@@ -158,6 +159,21 @@ class get_model_RRFSegNet(nn.Module):
         concat = torch.cat([global_net, out_net1, out_net2], dim=1)
         out = self.end_net(concat)
 
+        dir_out = out[:,:3]
+        dist_out = None
+        if self.MODEL_CFG.OUTPUT_NODS == 4:
+            dist_out = out[:,3:4,:]
+
+        if self.MODEL_CFG.SIGMOID:
+            dir_out = torch.tanh(dir_out)
+
+        if self.MODEL_CFG.CLASS_SIGMOID:
+            dist_out = torch.sigmoid(dist_out)
+        if dist_out is not None:
+            out = torch.cat([dir_out,dist_out], dim=1)
+        else:
+            out = dir_out
+        
         og_batch_size = out.shape[0]
         out = torch.squeeze(out)
         if og_batch_size == 1:

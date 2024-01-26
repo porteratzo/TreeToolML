@@ -4,18 +4,18 @@ import math
 import os
 import pclpy
 import open3d as o3d
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 import treetool.seg_tree as seg_tree
 
 
-def downsample(point_cloud, leaf_size=0.005, return_idx=False):
+def downsample(point_cloud, leaf_size=0.005, return_idx=False, min_bound=np.array([-100, -100, -100]), max_bound=np.array([100, 100, 100])):
     if return_idx:
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(point_cloud)
         _, rest, _ = pcd.voxel_down_sample_and_trace(
             voxel_size=leaf_size,
-            min_bound=np.array([-10, -10, -10]),
-            max_bound=np.array([10, 10, 10]),
+            min_bound=min_bound,
+            max_bound=max_bound,
         )
         return rest[rest != -1]
     else:
@@ -61,7 +61,7 @@ def combine_IOU(vis_dict):
 
 def data_preprocess(temp_point_set):
     temp_xyz = temp_point_set[:, :3]
-    temp_xyz = normalize(temp_xyz)
+    temp_xyz = normalize_2(temp_xyz)
     return temp_xyz
 
 
@@ -95,19 +95,13 @@ def get_train_val_set(trainingdata_path, val_rate=0.20):
 
 
 def normalize_2(sample_xyz):
+    #min height at 0
     centerd_tree = sample_xyz - np.multiply(np.min(sample_xyz, 0), [0, 0, 1])
+    #center xy
     centerd_tree = centerd_tree - np.multiply(np.mean(centerd_tree, axis=0), [1, 1, 0])
     # normalize into unit sphere
     centerd_tree /= np.max(np.linalg.norm(centerd_tree, axis=1))
     return centerd_tree
-
-
-def normalize_2_return_scale(sample_xyz):
-    centerd_tree = sample_xyz - np.multiply(np.min(sample_xyz, 0), [0, 0, 1])
-    centerd_tree = centerd_tree - np.multiply(np.mean(centerd_tree, axis=0), [1, 1, 0])
-    # normalize into unit sphere
-    return_tree = centerd_tree / np.max(np.linalg.norm(centerd_tree, axis=1))
-    return return_tree, np.max(np.linalg.norm(centerd_tree, axis=1))
 
 
 def normalize_2_center_return_scale(sample_xyz, center):
@@ -236,10 +230,7 @@ def bb_intersection_over_union(boxA, boxB):
 
 
 def get_center_scale(sample_xyz):
-    min_xyz = np.min(sample_xyz, axis=0)
-    max_xyz = np.max(sample_xyz, axis=0)
-    deta_central_xyz = (max_xyz - min_xyz) / 2.0
-    central_xyz = deta_central_xyz + min_xyz
+    central_xyz = np.multiply(np.min(sample_xyz, 0), [0, 0, 1]) + np.multiply(np.mean(sample_xyz, axis=0), [1, 1, 0])
     n_data = sample_xyz - central_xyz
     # normalize into unit sphere
     scale = np.max(np.linalg.norm(n_data, axis=1))

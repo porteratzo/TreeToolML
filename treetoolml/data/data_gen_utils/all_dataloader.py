@@ -1,10 +1,10 @@
 from numpy.random.mtrand import normal
 from treetoolml.data.data_gen_utils.custom_loaders import *
-from treetoolml.IndividualTreeExtraction.utils.py_util import normalize
+from treetoolml.IndividualTreeExtraction_utils.utils.py_util import normalize
 from tqdm import tqdm
 import os
 import numpy as np
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 import treetoolml.utils.py_util as py_util
 from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
 

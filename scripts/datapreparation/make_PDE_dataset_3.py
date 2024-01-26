@@ -12,16 +12,15 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import os
-from treetoolml.utils.tictoc import bench_dict
-from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
-from treetoolml.utils.vis_utils import vis_trees_centers
+from tictoc import bench_dict
+from treetoolml.utils.vis_utils import tree_vis_tool
 from shutil import rmtree
 
-bench_dict.disable()
+#bench_dict.disable()
 
 
 class make_dataset_loader(Dataset):
-    def __init__(self, loader, cfg, size):
+    def __init__(self, loader: all_data_loader_cloud, cfg, size):
         self.loader = loader
         self.cfg = cfg
         self.size = size
@@ -32,7 +31,7 @@ class make_dataset_loader(Dataset):
     def __getitem__(self, index):
         while True:
             bench_dict["train_data"].gstep()
-            cluster, labels, centers = self.loader.get_tree_cluster(
+            return_val = self.loader.get_tree_cluster(
                 split="train",
                 max_trees=self.cfg.DATA_CREATION.AUGMENTATION.MAX_TREES,
                 translation_xy=self.cfg.DATA_CREATION.AUGMENTATION.TRANSLATION_XY,
@@ -43,21 +42,37 @@ class make_dataset_loader(Dataset):
                 dist_between=self.cfg.DATA_CREATION.AUGMENTATION.MIN_DIST_BETWEEN,
                 do_normalize=self.cfg.DATA_CREATION.AUGMENTATION.DO_NORMALIZE,
                 center_method=self.cfg.DATA_CREATION.CENTER_METHOD,
+                use_trunks=self.cfg.DATA_CREATION.STICK,
+                noise=self.cfg.DATA_CREATION.NOISE
             )
-            cluster, labels, centers = (
-                [i.astype(np.float16) for i in cluster],
-                [i.astype(np.float16) for i in labels],
+            if self.cfg.DATA_CREATION.STICK:
+                cluster, labels, centers, trunks = return_val
+                cluster, labels, centers, trunks = (
+                cluster.astype(np.float16),
+                labels.astype(np.float16),
                 [i.astype(np.float16) for i in centers],
-            )
+                [i.astype(np.float16) for i in trunks]
+                )
+            else:
+                cluster, labels, centers = return_val
+                cluster, labels, centers, = (
+                cluster.astype(np.float16),
+                labels.astype(np.float16),
+                [i.astype(np.float16) for i in centers],
+                )
+            
             bench_dict["train_data"].step("get cluster")
-            array = np.hstack([np.vstack(cluster), np.vstack(labels)])
+            array = np.hstack([cluster, labels])
+            trunk_array = np.vstack(trunks)
             centers = np.hstack([np.vstack(centers), np.vstack(np.unique(np.vstack(labels)))])
             if len(array) > self.cfg.DATA_CREATION.MIN_SIZE:
                 break
             else:
                 print("too small")
-                
-        return array, [centers]
+        if self.cfg.DATA_CREATION.STICK:
+            return array, [centers], trunk_array
+        else:
+            return array, [centers]
 
 
 def main(args):
@@ -65,7 +80,7 @@ def main(args):
     cfg = combine_cfgs(cfg_path, args.opts)
 
     loader = all_data_loader_cloud(
-        onlyTrees=False, preprocess=False, default=False, train_split=True
+        onlyTrees=False, preprocess=False, default=False, train_split=True, normal_filter=False
     )
     if cfg.DATA_CREATION.USE_CENTER_FILTERED:
         loader.load_all("datasets/custom_data/full_cloud")
@@ -99,17 +114,35 @@ def main(args):
     paths = [savepathtrain, savepathtest, savepathval]
     for amount, path in zip(amounts, paths):
         generator = DataLoader(
-            make_dataset_loader(loader, cfg, amount), num_workers=1, batch_size=1
+            make_dataset_loader(loader, cfg, amount), num_workers=4, batch_size=1
         )
         try:
-            for i, (array, centers) in enumerate(tqdm(generator)):
-                for _array, _centers in zip(array, centers):
+            for i, return_var1 in enumerate(tqdm(generator)):
+                if cfg.DATA_CREATION.STICK:
+                    array, centers, trunks = return_var1
+                    inter = zip(array, centers, trunks)
+                else:
+                    array, centers = return_var1
+                    inter = zip(array, centers)
+                for return_var2 in inter:
+                    if cfg.DATA_CREATION.STICK:
+                        _array, _centers, _trunks = return_var2
+                    else:
+                        _array, _centers = return_var2
                     _centers = np.array(_centers).reshape(-1,4)
-                    np.savez(
-                        os.path.join(path, str(i) + ".npz"),
-                        cloud=np.array(_array).astype(np.float16),
-                        centers=_centers,
-                    )
+                    if cfg.DATA_CREATION.STICK:
+                        np.savez(
+                            os.path.join(path, str(i) + ".npz"),
+                            cloud=np.array(_array).astype(np.float16),
+                            centers=_centers,
+                            trunks=_trunks
+                        )
+                    else:
+                        np.savez(
+                            os.path.join(path, str(i) + ".npz"),
+                            cloud=np.array(_array).astype(np.float16),
+                            centers=_centers,
+                        )
                     bench_dict["train_data"].step("save")
                     bench_dict["train_data"].gstop()
         except KeyboardInterrupt:

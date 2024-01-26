@@ -1,13 +1,14 @@
 from numpy.random.mtrand import normal
 from treetoolml.data.data_gen_utils.custom_loaders import *
-from treetoolml.IndividualTreeExtraction.utils.py_util import normalize
+from treetoolml.IndividualTreeExtraction_utils.utils.py_util import normalize
 from tqdm import tqdm
 import os
 import numpy as np
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 import treetoolml.utils.py_util as py_util
-from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
-from treetoolml.data.data_gen_utils.dataloaders import data_loader, data_loader_fullcloud
+from treetoolml.utils.vis_utils import tree_vis_tool
+from treetoolml.data.data_gen_utils.dataloaders import data_loader_fullcloud
+from treetoolml.benchmark.benchmark_utils import get_close_points
 
 
 def eulerAnglesToRotationMatrix(theta):
@@ -38,11 +39,12 @@ def eulerAnglesToRotationMatrix(theta):
 
 class all_data_loader_cloud:
     def __init__(
-        self, onlyTrees=False, preprocess=False, default=True, train_split=False, new_paris=False
+        self, onlyTrees=False, preprocess=False, default=True, train_split=False, new_paris=False, normal_filter=False
     ) -> None:
         self.loader_list = {}
         self.tree_list = []
         self.non_tree_list = []
+        self.normal_filter = normal_filter
         self.full_cloud = data_loader_fullcloud(onlyTrees, preprocess, train_split)
         self.loader_list['full_filter'] = self.full_cloud
         # self.non_tree_list.append(self.iqumulus)
@@ -58,9 +60,9 @@ class all_data_loader_cloud:
         choice = np.random.choice(len(self.non_tree_list))
         return self.non_tree_list[choice].get_random_background(radius)
 
-    def get_random_forground(self, train=False):
+    def get_random_forground(self, train=False, trunks=False):
         choice = np.random.choice(len(self.tree_list))
-        return self.tree_list[choice].get_random_forground(train)
+        return self.tree_list[choice].get_random_forground(train, trunks)
 
     def get_tree_cluster(
         self,
@@ -74,7 +76,9 @@ class all_data_loader_cloud:
         dist_between=3,
         do_normalize=False,
         zero_floor = True,
-        center_method = 0
+        center_method = 0,
+        use_trunks=False,
+        noise=0.0
     ):
         bench_dict['get cluster'].gstep()
         number_of_trees = np.random.randint(1, max_trees + 1)
@@ -83,9 +87,14 @@ class all_data_loader_cloud:
         cluster = []
         cluster_center = []
         centers = []
+        if use_trunks:
+            trunks = []
         bench_dict['get cluster'].step('start')
         for i in range(number_of_trees):
-            tree, _center = self.get_random_forground(split)
+            if use_trunks:
+                tree_no_noise, _center, trunk = self.get_random_forground(split, use_trunks)
+            else:
+                tree_no_noise, _center = self.get_random_forground(split, use_trunks)
             bench_dict['get cluster'].step('forground')
 
             # R = eulerAnglesToRotationMatrix([0,0,np.random.uniform(0,np.pi*2)])
@@ -117,11 +126,24 @@ class all_data_loader_cloud:
             rt = np.eye(4)
             rt[:3, 3] = translation
             rt[:3, :3] = scaler * R
-            htree = np.hstack([tree, np.ones_like(tree[:, 0:1])])
-            hcenters = np.hstack([_center, 1]).reshape(1,4)
-            new_tree = (rt @ htree.T).T[:,:3]
-            new_center = (rt @ hcenters.T).T[:,:3]
+            if noise != 0.0:
+                rand_noise = np.random.uniform(0.1, noise) * (scaler - min_height) / (max_height - min_height)
+                noise_cloud = np.random.rand(int(tree_no_noise.shape[0]*rand_noise), 3)-[0.5,0.5,0]
+                noise_cloud = noise_cloud * [0.2,0.2,1]
+                tree = np.vstack([tree_no_noise,noise_cloud])
+                if use_trunks:
+                    trunk = np.hstack([trunk,np.repeat(False, len(noise_cloud))])
+            bench_dict['get cluster'].step('noise')
+            transform_points = np.vstack([tree,_center[np.newaxis,:]])
+            transform_points = np.hstack([transform_points, np.ones_like(transform_points[:, 0:1])]).T
+            bench_dict['get cluster'].step('stack')
+            tranform_mat = (rt @ transform_points).T
+            new_tree = tranform_mat[:-1,:3]
+            new_center = tranform_mat[-1:,:3]
             bench_dict['get cluster'].step('transform')
+            if use_trunks:
+                trunks.append(trunk)
+            bench_dict['get cluster'].step('appe')
             cluster.append(new_tree)
             cluster_center.append(translation)
             if center_method:
@@ -130,9 +152,30 @@ class all_data_loader_cloud:
                 centers.append(np.mean(new_tree,axis=0))
             bench_dict['get cluster'].step('append')
 
-        labels = [n * np.ones_like(i[:, :1]) for n, i in enumerate(cluster)]
+        labels = np.vstack([n * np.ones_like(i[:, :1]) for n, i in enumerate(cluster)])
+        if self.normal_filter:
+            d_indexes = py_util.downsample(np.vstack(cluster), 0.06, return_idx=True)
+            cluster = np.vstack(cluster)[d_indexes]
+            trunks = np.hstack(trunks)[d_indexes]
+            labels = labels[d_indexes]
+        else:
+            cluster = np.vstack(cluster)
+            trunks = np.hstack(trunks)
+            #indexes = py_util.normal_filter(
+            #    np.vstack(dcluster),
+            #    return_indexes=True,
+            #    search_radius=0.2,
+            #)
+            #fcluster = dcluster[indexes]
+            #labels = labels[indexes]
+            #cluster = fcluster
+
+        bench_dict['get cluster'].step('filter')
         bench_dict['get cluster'].gstop()
-        return cluster, labels, centers
+        if use_trunks:
+            return cluster, labels, centers, trunks
+        else:
+            return cluster, labels, centers
 
     def get_tree_centers(self, temp_xyz, labels, return_cloud=False, return_filtered=False):
         bench_dict["loader"].gstep()

@@ -1,8 +1,3 @@
-"""
-Created on Mon July 11 18:50:39 2020
-
-@author: Haifeng Luo
-"""
 
 import pclpy
 import numpy as np
@@ -13,10 +8,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, "utils"))
 import treetoolml.utils.py_util as py_util
-from treetoolml.utils.tictoc import bench_dict
+from tictoc import bench_dict
 from torch.utils.data import Dataset
 from treetoolml.data.data_gen_utils.dataloaders import downsample
 from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
+from treetoolml.utils.vis_utils import tree_vis_tool
+from treetoolml.benchmark.benchmark_utils import get_close_point_ratio, get_close_points
 
 
 class tree_dataset(Dataset):
@@ -28,7 +25,8 @@ class tree_dataset(Dataset):
         normal_filter=False,
         distances=False,
         center_collection_size=None,
-        return_scale=False
+        return_scale=False,
+        return_trunk=False
     ):
         self.files = py_util.get_data_set(trainingdata_path)
         self.path = trainingdata_path
@@ -36,6 +34,7 @@ class tree_dataset(Dataset):
         self.return_centers = return_centers
         self.normal_filter = normal_filter
         self.distances = distances
+        self.return_trunk = return_trunk
         self.center_collection_size = center_collection_size
         self.return_scale = return_scale
 
@@ -149,72 +148,98 @@ class tree_dataset(Dataset):
 class tree_dataset_cloud(tree_dataset):
     def get_tree(self, index):
         bench_dict["loader"].gstep()
+        # load example 
         data = py_util.load_data(os.path.join(self.path, self.files[index]))
         temp_point_set = data["cloud"]
         temp_centers = data["centers"]
+
         points = temp_point_set[:, :3]
-        points, temp_centers[:, :3], scale = py_util.normalize_2_center_return_scale(points, temp_centers[:, :3])
-        #temp_centers[:, :3] = temp_centers[:, :3] / scale
         object_label = temp_point_set[:, 3]
         unique_object_label = np.unique(object_label)
 
-        temp_multi_objects_sample = []
-        temp_multi_objects_centers = []
+        if False:
+            ds_idx = py_util.downsample(points, 0.05, True)
+            points = points[ds_idx]
+            object_label = object_label[ds_idx]
+        if self.return_trunk:
+            trunk_idx = data["trunks"]
+
+        # scale down
+        points, temp_centers[:, :3], scale = py_util.normalize_2_center_return_scale(points, temp_centers[:, :3])
+
+        sample_object = []
+        sample_centers = []
 
         bench_dict["loader"].step("start")
+        # for each tree
         for j in range(np.size(unique_object_label)):
-            ###get single object
-            temp_index = np.where(object_label == unique_object_label[j])
-            center_index = np.where(temp_centers[:, 3] == unique_object_label[j])
-            temp_index_object_xyz = points[temp_index[0], :]
-            temp_object_center_xyz = temp_centers[:, :3][center_index[0]][0]
-            temp_object_label = np.expand_dims(object_label[temp_index[0]], axis=-1)
+            ###get single tree
+            idx = np.where(object_label == unique_object_label[j])
+            center_idx = np.where(temp_centers[:, 3] == unique_object_label[j])
+            single_tree_xyz = points[idx[0], :]
+            center_xyz = temp_centers[:, :3][center_idx[0]][0]
             bench_dict["loader"].step("compute 1")
-            temp_direction_label = temp_object_center_xyz - temp_index_object_xyz
+            direction_vector = center_xyz - single_tree_xyz
             if self.distances:
+                # calculate distance target
                 distances_label = np.linalg.norm(
-                    temp_direction_label[:, :2], axis=1
+                    direction_vector[:, :2], axis=1
                 ).reshape([-1, 1])
-                distances_label = (distances_label - np.min(distances_label) )/(np.max(distances_label)-np.min(distances_label))
-                temp_direction_label = temp_direction_label / np.linalg.norm(
-                    temp_direction_label, axis=1
+                # scale to 0-1
+                if self.return_trunk:
+                    distances_label = trunk_idx[idx[0]]
+                else:
+                    distances_label = (distances_label - np.min(distances_label) )/(np.max(distances_label)-np.min(distances_label))
+                # normalize direction target
+                direction_vector = direction_vector / np.linalg.norm(
+                    direction_vector, axis=1
                 ).reshape([-1, 1])
-                temp_direction_label = np.hstack(
-                    [temp_direction_label, distances_label]
+                direction_vector = np.hstack(
+                    [direction_vector, distances_label]
                 )
             else:
-                temp_direction_label = temp_direction_label / np.linalg.norm(
-                    temp_direction_label, axis=1
+                # normalize direction target
+                direction_vector = direction_vector / np.linalg.norm(
+                    direction_vector, axis=1
                 ).reshape([-1, 1])
-            temp_xyz_direction_label_concat = np.concatenate(
-                [temp_index_object_xyz, temp_direction_label, temp_object_label],
+
+            temp_object_label = np.expand_dims(object_label[idx[0]], axis=-1)
+            xyz_direction_label_object = np.concatenate(
+                [single_tree_xyz, direction_vector, temp_object_label],
                 axis=-1,
             )
-            temp_multi_objects_sample.append(temp_xyz_direction_label_concat)
-            temp_multi_objects_centers.append(temp_object_center_xyz)
+            sample_object.append(xyz_direction_label_object)
+            sample_centers.append(center_xyz)
             bench_dict["loader"].step("compute other")
 
-        temp_multi_objects_sample = np.vstack(temp_multi_objects_sample)
+        sample_object = np.vstack(sample_object)
+        bench_dict["loader"].step("stack")
+        # downsample
+        idsz= np.arange(len(sample_object))
+        np.random.shuffle(idsz)
 
-        temp_multi_objects_sample = py_util.shuffle_data(temp_multi_objects_sample)
-        temp_multi_objects_sample = temp_multi_objects_sample[: self.num_points, :]
-        ###
-        training_xyz = temp_multi_objects_sample[:, :3]
-        training_direction_label = temp_multi_objects_sample[:, 3:-1]
-        training_object_label = temp_multi_objects_sample[:, -1]
-        bench_dict["loader"].step("shuffle")
+        sample_object = sample_object[idsz[:self.num_points], :]
+        bench_dict["loader"].step("shuffle1")
+        
+
+        # seperate data
+        training_xyz = sample_object[:, :3]
+        training_direction_label = sample_object[:, 3:-1]
+        training_object_label = sample_object[:, -1]
+        bench_dict["loader"].step("sep")
         bench_dict["loader"].gstop()
 
+        # setup returns
         returns = [training_xyz, training_direction_label, training_object_label]
         if self.return_centers:
             if self.center_collection_size is not None:
                 [
-                    temp_multi_objects_centers.append(np.array([-1,-1,-1], dtype=np.float16))
+                    sample_centers.append(np.array([-1,-1,-1], dtype=np.float16))
                     for i in range(
-                        self.center_collection_size - len(temp_multi_objects_centers)
+                        self.center_collection_size - len(sample_centers)
                     )
                 ]
-            returns.append(temp_multi_objects_centers)
+            returns.append(sample_centers)
         if self.return_scale:
             returns.append(scale)
         return returns

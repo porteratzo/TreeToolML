@@ -15,9 +15,15 @@ models_multi = set()
 #models_multi.update(['baseline', 'baseline_smaller_window_4', 'baseline_smaller_window_6', 'baseline_smaller_window_10'])
 #models_multi.update(['trunks', 'distance', 'distance_loss',])
 #models_multi.update(['distance_loss', 'distance_loss_distance_filter_001', 'distance_loss_distance_filter_005'])
-models_multi.update(['distance_out_loss_scale_05', 'distance_out_loss_scale_00', 'distance_out_loss_scale_03','distance_out_loss_scale_08'])
+#models_multi.update(['distance_out_loss_scale_05', 'distance_out_loss_scale_00', 'distance_out_loss_scale_03','distance_out_loss_scale_08'])
+#models_multi.update(['distance_out_loss_clustering', 'distance_out_loss'])
+#models_multi.update(['group', 'IOU', 'stems_IOU', 'stems','none'])
+#models_multi.update(['little','NORMAL'])
+#models_multi.update(['distance_loss_distance_filter_005','distance_loss_distance_filter_01','distance_loss_distance_filter_02'])
+#models_multi.update(['distance_loss_distance_filter_005_seg','distance_loss_distance_filter_01_seg','distance_loss_distance_filter_02_seg'])
+models_multi.update(['distance_loss'])
 #models_multi.update(['distance_loss','RRFSegNet'])
-#models_multi.update(['distance_loss'])
+#models_multi.update(['distance_loss','distance_out_loss','distance_out_loss_scale','distance_out'])
 metrics = {}
 BenchmarkMetrics, Methods = make_benchmark_metrics()
 for model in list(models_multi):
@@ -51,7 +57,11 @@ for plot_number, metric_name in enumerate(alldata):
                 _m = 'TreeToolML'
             else:
                 _m = m
-            mine[_m] = np.mean(metrics[m][metric_name][slice(dificulty_n, dificulty_n + 2)]) * 100
+            if metric_name == 'Diameter_RMSE':
+                metric = metrics[m]['Diameter_RMSE_C']
+            else:
+                metric = metrics[m][metric_name]
+            mine[_m] = np.mean(metric[slice(dificulty_n, dificulty_n + 2)]) * 100
             results[metric_name + '_' +  dificulties[dificulty_n]][m] = mine[_m] / 100
         colors = [np.array(cm.gist_rainbow(i)) * 0.3 if n < len(Methods) - 1 else cm.gist_rainbow(i) for
                   n, i in enumerate(np.linspace(0, 1, len(Methods) + len(models_multi)))]
@@ -77,7 +87,9 @@ for plot_number, metric_name in enumerate(alldata):
             plt.yticks(np.arange(0,100,10))
         else:
             plt.yticks(np.linspace(0,np.max(sortnum),8))
+        print(metric_name + " " + dificulties[dificulty_n])
+        print([[i,j] for i,j in zip(sortmethods,sortnum) if i in ['TreeToolML','TreeTool']])
     plt.savefig(f'{metric_name}.jpg',bbox_inches='tight', dpi=400)
-    plt.show()
+    #plt.show()
 
 # %%

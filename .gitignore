@@ -141,3 +141,5 @@ performance_*
 /.idea
 misc_data
 /*.jpg
+/figures
+launch.json

@@ -1,33 +1,36 @@
-
 import os
+import pickle
 from collections import defaultdict
 
-import treetool.tree_tool as treeTool
 import numpy as np
 import pclpy
 import torch
-from scipy.optimize import linear_sum_assignment
+import treetool.tree_tool as treeTool
 from tqdm import tqdm
-from treetoolml.utils.default_parser import default_argument_parser
-from treetoolml.benchmark.benchmark_utils import load_gt, store_metrics, save_eval_results, confusion_metrics
+
+from treetoolml.benchmark.benchmark_utils import (
+    confusion_metrics,
+    load_gt,
+    make_metrics_dict,
+    run_combine_stems,
+    run_detection,
+    sample_generator,
+    save_eval_results,
+    store_metrics,
+    matching,
+    get_close_points,
+    combine_close_points
+)
 from treetoolml.config.config import combine_cfgs
-from treetoolml.IndividualTreeExtraction.center_detection.center_detection_vis import (
-    center_detection,
-)
-from treetoolml.IndividualTreeExtraction.PointwiseDirectionPrediction_torch import (
-    prediction,
-)
 from treetoolml.model.build_model import build_model
-from treetoolml.utils.file_tracability import find_model_dir, get_checkpoint_file, get_model_dir
-from treetoolml.utils.py_util import (
-    combine_IOU,
-    data_preprocess,
-    get_center_scale,
-    shuffle_data,
+from treetoolml.utils.default_parser import default_argument_parser
+from treetoolml.utils.file_tracability import (
+    find_model_dir,
+    get_checkpoint_file,
+    get_model_dir,
 )
-from treetoolml.benchmark.benchmark_utils import make_metrics_dict
-import pickle
-from porteratzolibs.visualization_o3d.open3dvis import open3dpaint
+from treetoolml.utils.py_util import combine_IOU
+from treetoolml.utils.vis_utils import tree_vis_tool
 
 
 def main(args):
@@ -44,13 +47,6 @@ def main(args):
 
     if device == "cuda":
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_number)
-
-    Nd = cfg.BENCHMARKING.XY_THRESHOLD
-    ARe = np.deg2rad(cfg.BENCHMARKING.ANGLE_THRESHOLD)
-    voxel_size = cfg.BENCHMARKING.VOXEL_SIZE
-
-    sample_side_size = cfg.BENCHMARKING.WINDOW_STRIDE
-    overlap = cfg.BENCHMARKING.OVERLAP
 
     model_name = cfg.TRAIN.MODEL_NAME
     model_dir = os.path.join("results_training", model_name)
@@ -71,14 +67,12 @@ def main(args):
     model.load_state_dict(checkpoint["model_state_dict"])
 
     EvaluationMetrics = make_metrics_dict()
-    visualize = False
-    #visualize = True
 
     confMat_list = []
     result_list = []
     process_dict = []
 
-    for number in tqdm(range(1, 7, 1), desc='forest plot'):
+    for number in tqdm(range(1, 7, 1), desc="forest plot"):
         cloud_file = f"benchmark/subsampled_data/TLS_Benchmarking_Plot_{number}_MS.pcd"
         PointCloud = pclpy.pcl.PointCloud.PointXYZ()
         pclpy.pcl.io.loadPCDFile(cloud_file, PointCloud)
@@ -86,139 +80,101 @@ def main(args):
         treetool = treeTool.treetool(PointCloud)
         treetool.step_1_remove_floor()
         treetool.step_2_normal_filtering(
-            verticality_threshold=0.08, curvature_threshold=0.12, search_radius=0.08
+            verticality_threshold=cfg.BENCHMARKING.VERTICALITY,
+            curvature_threshold=cfg.BENCHMARKING.CURVATURE,
+            search_radius=0.08,
         )
 
-        x1, y1, z1 = np.min(treetool.filtered_points.xyz, 0)
-        x2, y2, z2 = np.max(treetool.filtered_points.xyz, 0)
-
-        cropfilter = pclpy.pcl.filters.CropBox.PointXYZ()
         results_dict = defaultdict(dict)
         vis_dict = []
-        for n_x, x_start in enumerate(
-                tqdm(np.arange(x1, x2, sample_side_size - sample_side_size * overlap), desc='plot row')):
-            for n_y, y_start in enumerate(np.arange(y1, y2, sample_side_size - sample_side_size * overlap)):
-                cropfilter.setMin(np.array([x_start, y_start, -100, 1.0]))
-                cropfilter.setMax(
-                    np.array([x_start + sample_side_size, y_start + sample_side_size, 100, 1.0])
-                )
-                cropfilter.setInputCloud(treetool.filtered_points)
-                sub_pcd = pclpy.pcl.PointCloud.PointXYZ()
-                cropfilter.filter(sub_pcd)
-                cropfilter.setInputCloud(treetool.non_filtered_points)
-                sub_pcd_nf = pclpy.pcl.PointCloud.PointXYZ()
-                cropfilter.filter(sub_pcd_nf)
-                if np.shape(sub_pcd.xyz)[0] > 0:
-                    Odata_xyz = data_preprocess(sub_pcd_nf.xyz)
-                    data_xyz = data_preprocess(sub_pcd.xyz)
-                    data_xyz = shuffle_data(data_xyz)
-                    _data_xyz = data_xyz[:4096]
-                    center, scale = get_center_scale(sub_pcd.xyz)
 
-                    if np.shape(_data_xyz)[0] >= 4096:
-                        nor_testdata = torch.tensor(_data_xyz, device="cuda").squeeze()
-                        xyz_direction = prediction(model, nor_testdata, args)
-                        
-                        if cfg.DATA_PREPROCESSING.DISTANCE_FILTER == 0.0:
-                            _xyz_direction = xyz_direction
-                        else:
-                            _xyz_direction = xyz_direction[xyz_direction[:, 6] < cfg.DATA_PREPROCESSING.DISTANCE_FILTER]
+        sample_side_size = cfg.BENCHMARKING.WINDOW_STRIDE
+        overlap = cfg.BENCHMARKING.OVERLAP
+        generator = sample_generator(sample_side_size, overlap, treetool)
 
-                        object_center_list, seppoints = center_detection(
-                            _xyz_direction, voxel_size, ARe, Nd
-                        )
-                        if visualize:
-                            object_center_list_, seppoints_ = center_detection(
-                                xyz_direction, voxel_size, ARe, Nd
-                            )
-                        if len(seppoints) > 0:
-                            # open3dpaint([xyz_direction[:, :3].tolist()] + [_xyz_direction[:, :3] + (0.1, 0, 0)] + [i+(1,0,0) for i in seppoints if len(i)>0],
-                            if visualize:
-                                open3dpaint(
-                                    [xyz_direction[:, :3].tolist()] + [(_xyz_direction[:, :3] + (0, 2, 0)).tolist()] + [
-                                        i + (4, 0, 0)
-                                        for i in
-                                        seppoints_ if
-                                        len(i) > 0] + [i + (4, 2, 0)
-                                                       for i in
-                                                       seppoints if
-                                                       len(i) > 0],
-                                    pointsize=4)
+        run_detection(args, cfg, model, results_dict, vis_dict, generator, use_non_filtered=False, tolerence=0.25)
 
-                            seppoints = [i for i in seppoints if np.size(i, 0)]
-                            results_dict[n_x][n_y] = {
-                                "x": x_start,
-                                "y": y_start,
-                                "Opoints": Odata_xyz,
-                                "Fpoints": data_xyz,
-                                "Ipoints": _data_xyz,
-                                "centers": object_center_list,
-                                "segmentation": seppoints,
-                                'prediction':_xyz_direction,
-                                "center": center,
-                                "scale": scale,
-                            }
-                            result_points = [(i * scale) + center for i in seppoints]
-                            vis_dict.extend(result_points)
-
-        if cfg.BENCHMARKING.GROUP_STEMS:
-            treetool.cluster_list = vis_dict
-            treetool.step_4_group_stems()
-            
         if cfg.BENCHMARKING.COMBINE_IOU:
             vis_dict_ = combine_IOU(vis_dict)
         else:
             vis_dict_ = vis_dict
 
-        treetool.complete_Stems = vis_dict_
-        treetool.step_5_get_ground_level_trees()
-        treetool.step_6_get_cylinder_tree_models()
+        close_in = vis_dict_
+        while True:
+            close_out = combine_close_points(close_in, 0.2, 0.4)
+            print('closepoints input:',len(close_in),' out:', len(close_out))
+            if len(close_in) == len(close_out):
+                break
+            close_in = close_out
 
-        if cfg.BENCHMARKING.COMBINE_STEMS:
-            from sklearn.cluster import dbscan
-            models = [i['model'] for i in treetool.finalstems]
-            vis = [i['tree'] for i in treetool.finalstems]
-            if len(models) > 0:
-                dp = dbscan(np.array(models), eps=1, min_samples=2)[1]
+        if cfg.BENCHMARKING.GROUP_STEMS:
+            g_stem_in = close_out
+            while True:
+                treetool.cluster_list = g_stem_in
+                treetool.step_4_group_stems(0.3)
+                print('stem groups input:',len(g_stem_in),' out:', len(treetool.complete_Stems))
+                if len(g_stem_in) == len(treetool.complete_Stems):
+                    break
+                g_stem_in = treetool.complete_Stems 
 
-                _models = np.array(models)[dp == -1].tolist()
-                _vis = np.array(vis, dtype=object)[dp == -1].tolist()
-                for clust in np.unique(dp):
-                    if clust == -1:
-                        continue
-                    _models.append(
-                        np.array(models)[dp == clust].tolist()[np.argmax([len(i) for i in np.array(vis, dtype=object)[dp == clust]])])
-                    _vis.append(np.vstack(np.array(vis, dtype=object)[dp == clust]).tolist())
-                treetool.finalstems = [{'tree': np.array(v), 'model': np.array(m)} for m, v in zip(_models, _vis)]
-            else:
-                treetool.finalstems
-            # open3dpaint([np.vstack(_vis) + [0.1, 0, 0]] + vis, pointsize=2)
-        treetool.step_7_ellipse_fit()
-        process_dict.append({'before_IOU': vis_dict, 'after_IOU': vis_dict_})
+        new_pointcloud_cluster = []
+        sub_pcd = pclpy.pcl.PointCloud.PointXYZ()
+        cropfilter = pclpy.pcl.filters.CropBox.PointXYZ()
+        cropfilter.setInputCloud(treetool.non_filtered_points)
+        for clust in tqdm(treetool.complete_Stems):
+            _min, _max =  np.min(clust,axis=0)-1, np.max(clust,axis=0)+1
+            cropfilter.setMin(np.hstack([_min,1]))
+            cropfilter.setMax(np.hstack([_max,1]))
+            cropfilter.filter(sub_pcd)
+            _idx = get_close_points(clust,sub_pcd.xyz, 0.02)
+            new_pointcloud_cluster.append(sub_pcd.xyz[_idx])       
 
-        TreeDict = load_gt(path=f"benchmark/annotations/TLS_Benchmarking_Plot_{number}_LHD.txt")
+        treetool.complete_Stems = new_pointcloud_cluster
+        treetool.step_5_get_ground_level_trees(2,4,True, True)
+        treetool.step_6_get_cylinder_tree_models(stick=False, distance=0.06)
 
-        CostMat = np.ones([len(TreeDict), len(treetool.finalstems)])
-        for X, datatree in enumerate(TreeDict):
-            for Y, foundtree in enumerate(treetool.finalstems):
-                CostMat[X, Y] = np.linalg.norm([datatree[0:2] - foundtree["model"][0:2]])
+        run_combine_stems(cfg, treetool)
+        # open3dpaint([np.vstack(_vis) + [0.1, 0, 0]] + vis, pointsize=2)
+        
+        h_singles_point_cluster = []
+        for clust in treetool.finalstems:
+            _min, _max =  clust['ground'], np.max(clust['tree'][:,2],axis=0)
+            if _max - _min > 6:
+                h_singles_point_cluster.append(clust)
 
-        dataindex, foundindex = linear_sum_assignment(CostMat, maximize=False)
+        treetool.finalstems = h_singles_point_cluster
 
-        results_dict['non_filtered_points'] = treetool.non_filtered_points.xyz
-        results_dict['filtered_points'] = treetool.filtered_points.xyz
-        results_dict['complete_Stems'] = treetool.complete_Stems
-        results_dict['finalstems'] = treetool.finalstems
-        results_dict['visualization_cylinders'] = treetool.visualization_cylinders
+        treetool.step_7_ellipse_fit(-1,3)
+        treetool.finalstems = [i for i in treetool.finalstems if i['final_diameter'] > 0.05]
+        process_dict.append({"before_IOU": vis_dict, "after_IOU": vis_dict_})
+
+        TreeDict = load_gt(
+            path=f"benchmark/annotations/TLS_Benchmarking_Plot_{number}_LHD.txt"
+        )
+
+        dataindex, foundindex = matching(treetool, TreeDict)
+
+        results_dict["non_filtered_points"] = treetool.non_filtered_points.xyz
+        results_dict["filtered_points"] = treetool.filtered_points.xyz
+        results_dict["complete_Stems"] = treetool.complete_Stems
+        results_dict["finalstems"] = treetool.finalstems
+        results_dict["visualization_cylinders"] = treetool.visualization_cylinders
 
         store_metrics(EvaluationMetrics, treetool, TreeDict, dataindex, foundindex)
-        confMat_list.append(confusion_metrics(treetool, TreeDict, dataindex, foundindex))
+        confMat_list.append(
+            confusion_metrics(treetool, TreeDict, dataindex, foundindex)
+        )
         result_list.append(results_dict)
-    save_eval_results(path=f'{result_dir}/results.npz', EvaluationMetrics=EvaluationMetrics)
-    np.savez(f'{result_dir}/confusion_results.npz', confMat_list=np.array(confMat_list, dtype=object))
-    with open(f'{result_dir}/results_dict.pk', 'wb') as f:
+    save_eval_results(
+        path=f"{result_dir}/results.npz", EvaluationMetrics=EvaluationMetrics
+    )
+    np.savez(
+        f"{result_dir}/confusion_results.npz",
+        confMat_list=np.array(confMat_list, dtype=object),
+    )
+    with open(f"{result_dir}/results_dict.pk", "wb") as f:
         pickle.dump(result_list, f)
-    with open(f'{result_dir}/results_dict_iou.pk', 'wb') as f:
+    with open(f"{result_dir}/results_dict_iou.pk", "wb") as f:
         pickle.dump(process_dict, f)
 
 

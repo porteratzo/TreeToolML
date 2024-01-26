@@ -1,0 +1,4 @@
+_BASE_: ../baseline.yaml
+
+DATA_PREPROCESSING:
+  DISTANCE_FILTER: 0.4
