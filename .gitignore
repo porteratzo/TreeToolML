@@ -178,3 +178,5 @@ results_training/
 results_benchmark/
 TICTOC_PERFORMANCE/
 benchmark/
+IndividualTreeExtraction/
+treetoolml/IndividualTreeExtraction_utils/

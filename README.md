@@ -49,7 +49,6 @@ For details on the individual tree extraction module, see [`IndividualTreeExtrac
 
 ## Repository Structure
 
-- `IndividualTreeExtraction/` - Core implementation for tree extraction
 - `scripts/` - Data preparation and utility scripts
 - `result/` - Output results
 - `data/` - Input and processed datasets
