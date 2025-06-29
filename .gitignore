@@ -172,3 +172,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+datasets/
+results_training/
+results_benchmark/
+TICTOC_PERFORMANCE/
+benchmark/
